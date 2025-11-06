@@ -4,7 +4,7 @@ import { Note, GridPosition } from '../models';
 import { StorageService } from './storage.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class NotesService {
   private storage = inject(StorageService);
@@ -26,7 +26,7 @@ export class NotesService {
       content,
       size: { width: 2, height: 2 },
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     this.notes.push(newNote);
@@ -37,7 +37,7 @@ export class NotesService {
   }
 
   async updateNote(noteId: string, content: string): Promise<void> {
-    const note = this.notes.find(n => n.id === noteId);
+    const note = this.notes.find((n) => n.id === noteId);
     if (note) {
       note.content = content;
       note.updatedAt = new Date();
@@ -47,7 +47,7 @@ export class NotesService {
   }
 
   async deleteNote(noteId: string): Promise<void> {
-    this.notes = this.notes.filter(n => n.id !== noteId);
+    this.notes = this.notes.filter((n) => n.id !== noteId);
     await this.storage.deleteNote(noteId);
     this.notesSubject.next([...this.notes]);
   }
@@ -60,6 +60,15 @@ export class NotesService {
       console.error('Failed to load notes:', error);
       this.notes = [];
       this.notesSubject.next([]);
+    }
+  }
+  async updateNotePosition(noteId: string, newPosition: GridPosition): Promise<void> {
+    const note = this.notes.find((n) => n.id === noteId);
+    if (note) {
+      note.position = newPosition;
+      note.updatedAt = new Date();
+      await this.storage.saveNote(note);
+      this.notesSubject.next([...this.notes]);
     }
   }
 
