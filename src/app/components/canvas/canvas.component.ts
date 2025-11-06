@@ -13,7 +13,7 @@ import { AddButtonComponent } from '../add-button/add-button.component';
   standalone: true,
   imports: [CommonModule, FormsModule, GridComponent, NoteComponent, AddButtonComponent],
   template: `
-    <div class="canvas-container">
+    <div class="canvas-container" [class.dragging]="isDraggingNote">
       <!-- Toolbar -->
       <div class="toolbar">
         <button (click)="addNoteAtCenter()" class="toolbar-btn">+ Add Note</button>
@@ -21,29 +21,31 @@ import { AddButtonComponent } from '../add-button/add-button.component';
           {{ canvasState.settings.showGrid ? 'Hide Grid' : 'Show Grid' }}
         </button>
         <button (click)="toggleAddButtons()" class="toolbar-btn">
-          {{ showAddButtons ? 'Hide + Buttons' : 'Show + Buttons' }}
+          {{ showAddButtons ? 'Hide + Button' : 'Show + Button' }}
         </button>
         <span class="notes-count">Notes: {{ notes.length }}</span>
         <span class="coordinates" *ngIf="mousePosition">
           X: {{ mousePosition.gridX }}, Y: {{ mousePosition.gridY }}
         </span>
+        <span class="drag-status" *ngIf="isDraggingNote">🚫 Dragging</span>
       </div>
       
       <!-- Main Canvas Area -->
       <div 
         class="canvas-area"
         (mousemove)="onMouseMove($event)"
+        (mousedown)="onCanvasMouseDown($event)"
         (click)="onCanvasClick($event)">
         
         <app-grid [settings]="canvasState.settings"></app-grid>
         
-        <!-- Contextual Add Buttons -->
+        <!-- Single Add Button at Mouse Position -->
         <app-add-button
-          *ngFor="let position of getVisibleAddButtonPositions()"
-          [position]="position"
+          *ngIf="showAddButtons && mousePosition && !isDraggingNote && !isPositionOccupied(mousePosition)"
+          [position]="mousePosition"
           [cellWidth]="canvasState.settings.cellWidth"
           [cellHeight]="canvasState.settings.cellHeight"
-          (addNote)="addNoteAtPosition($event)">
+          (addNote)="onAddButtonClick($event)">
         </app-add-button>
         
         <!-- Notes -->
@@ -52,7 +54,10 @@ import { AddButtonComponent } from '../add-button/add-button.component';
           [note]="note"
           [settings]="canvasState.settings"
           (contentChanged)="updateNoteContent(note.id, $event)"
-          (delete)="deleteNote(note.id)">
+          (positionChanged)="updateNotePosition(note.id, $event)"
+          (delete)="deleteNote(note.id)"
+          (dragStarted)="onNoteDragStart()"
+          (dragEnded)="onNoteDragEnd()">
         </app-note>
       </div>
     </div>
@@ -64,6 +69,10 @@ import { AddButtonComponent } from '../add-button/add-button.component';
       overflow: hidden;
       position: relative;
       background: #f8f9fa;
+    }
+
+    .canvas-container.dragging .canvas-area {
+      cursor: grabbing;
     }
     
     .toolbar {
@@ -95,10 +104,15 @@ import { AddButtonComponent } from '../add-button/add-button.component';
       border-color: #ccc;
     }
     
-    .notes-count, .coordinates {
+    .notes-count, .coordinates, .drag-status {
       font-size: 14px;
       color: #666;
       margin-left: 8px;
+    }
+
+    .drag-status {
+      color: #ff4444;
+      font-weight: bold;
     }
     
     .canvas-area {
@@ -109,6 +123,10 @@ import { AddButtonComponent } from '../add-button/add-button.component';
       bottom: 0;
       overflow: hidden;
       cursor: crosshair;
+    }
+
+    .canvas-container.dragging .canvas-area {
+      cursor: grabbing;
     }
   `]
 })
@@ -124,6 +142,9 @@ export class CanvasComponent implements OnInit {
 
   showAddButtons = true;
   mousePosition: GridPosition | null = null;
+  isDraggingNote = false;
+  private canvasMouseDownTime = 0;
+  private isClickFromCanvas = false;
 
   ngOnInit(): void {
     // Load notes
@@ -148,35 +169,39 @@ export class CanvasComponent implements OnInit {
     };
   }
 
-  onCanvasClick(event: MouseEvent): void {
-    // If clicking on empty canvas (not a note or button), show add button at that position
-    if (event.target === event.currentTarget && this.mousePosition) {
-      this.addNoteAtPosition(this.mousePosition);
+  onCanvasMouseDown(event: MouseEvent): void {
+    // Only track mousedown on the actual canvas (not on notes or buttons)
+    if (event.target === event.currentTarget) {
+      this.canvasMouseDownTime = Date.now();
+      this.isClickFromCanvas = true;
+    } else {
+      this.isClickFromCanvas = false;
     }
   }
 
-  getVisibleAddButtonPositions(): GridPosition[] {
-    if (!this.showAddButtons || !this.mousePosition) return [];
-
-    // Show add buttons around the mouse position
-    const positions: GridPosition[] = [];
-    const range = 2;
-
-    for (let x = -range; x <= range; x++) {
-      for (let y = -range; y <= range; y++) {
-        const pos: GridPosition = {
-          gridX: this.mousePosition.gridX + x,
-          gridY: this.mousePosition.gridY + y
-        };
-
-        // Only show if no note exists at this position
-        if (!this.isPositionOccupied(pos)) {
-          positions.push(pos);
-        }
-      }
+  onCanvasClick(event: MouseEvent): void {
+    // Only create note if:
+    // 1. Clicking on empty canvas (not on notes or buttons)
+    // 2. Not currently dragging a note
+    // 3. The mousedown originated from the canvas
+    // 4. It was a quick click (not part of a drag operation)
+    const clickDuration = Date.now() - this.canvasMouseDownTime;
+    
+    if (event.target === event.currentTarget && 
+        this.mousePosition && 
+        !this.isDraggingNote && 
+        this.isClickFromCanvas &&
+        clickDuration < 200) {
+      
+      this.addNoteAtPosition(this.mousePosition);
     }
+    
+    this.isClickFromCanvas = false;
+  }
 
-    return positions;
+  onAddButtonClick(position: GridPosition): void {
+    console.log('🎯 Add button clicked! Creating note at:', position);
+    this.addNoteAtPosition(position);
   }
 
   isPositionOccupied(position: GridPosition): boolean {
@@ -191,8 +216,9 @@ export class CanvasComponent implements OnInit {
   }
 
   addNoteAtPosition(position: GridPosition): void {
+    console.log('Creating note at position:', position);
     this.notesService.createNote(position).then(note => {
-      console.log('Note created at position:', position);
+      console.log('Note created successfully:', note);
     }).catch(error => {
       console.error('Error creating note:', error);
     });
@@ -201,6 +227,12 @@ export class CanvasComponent implements OnInit {
   updateNoteContent(noteId: string, content: string): void {
     this.notesService.updateNote(noteId, content).catch(error => {
       console.error('Error updating note:', error);
+    });
+  }
+
+  updateNotePosition(noteId: string, newPosition: GridPosition): void {
+    this.notesService.updateNotePosition(noteId, newPosition).catch(error => {
+      console.error('Error updating note position:', error);
     });
   }
 
@@ -216,5 +248,16 @@ export class CanvasComponent implements OnInit {
 
   toggleAddButtons(): void {
     this.showAddButtons = !this.showAddButtons;
+    console.log('Add button toggled. Now visible:', this.showAddButtons);
+  }
+
+  onNoteDragStart(): void {
+    this.isDraggingNote = true;
+  }
+
+  onNoteDragEnd(): void {
+    setTimeout(() => {
+      this.isDraggingNote = false;
+    }, 50);
   }
 }
