@@ -60,6 +60,7 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
         <!-- Main Canvas Area -->
         <div 
           class="canvas-area"
+          [class.no-transition]="isNavigating"
           [style.--zoom-level]="canvasState.viewport.zoom"
           [style.--offset-x.px]="canvasOffset.x"
           [style.--offset-y.px]="canvasOffset.y"
@@ -85,6 +86,7 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
               *ngFor="let note of notes"
               [note]="note"
               [settings]="canvasState.settings"
+              [class.no-transition]="isNavigating && note.id === activeNoteId"
               (contentChanged)="updateNoteContent(note.id, $event)"
               (positionChanged)="updateNotePosition(note.id, $event)"
               (delete)="deleteNote(note.id)"
@@ -124,6 +126,10 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
         /* Apply zoom */
         scale(var(--zoom-level, 1));
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .canvas-area.no-transition {
+      transition: none !important;
     }
 
     /* Debug center cross */
@@ -274,6 +280,11 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
     .canvas-area:not(.dragging) {
       transition: transform 0.1s ease-out;
     }
+
+    /* Disable transitions on notes during navigation */
+    ::ng-deep app-note.no-transition .note {
+      transition: none !important;
+    }
   `]
 })
 export class CanvasComponent implements OnInit, OnDestroy {
@@ -295,6 +306,7 @@ export class CanvasComponent implements OnInit, OnDestroy {
   isSpacePressed = false;
   canvasOffset = { x: 0, y: 0 };
   activeNoteId: string | null = null;
+  isNavigating = false;
   private lastMouseX = 0;
   private lastMouseY = 0;
   private canvasMouseDownTime = 0;
@@ -664,18 +676,26 @@ export class CanvasComponent implements OnInit, OnDestroy {
     const cellWidth = this.canvasState?.settings?.cellWidth || 200;
     const cellHeight = this.canvasState?.settings?.cellHeight || 150;
 
-    // Simple, robust formula:
-    // The notes grid is centered at canvas-space (5000,5000). A note's
-    // canvas X = 5000 + gridX * cellWidth. To center that note in the
-    // viewport we must move the canvas by (5000 - canvasX) pixels. Because
-    // the CSS transform is translate(...) then scale(...), the translation
-    // value should be the raw pixel offset (not divided by zoom).
-  this.canvasOffset.x = -note.position.gridX * cellWidth;
-  this.canvasOffset.y = -note.position.gridY * cellHeight;
+    // Disable transition for instant navigation
+    this.isNavigating = true;
 
-  console.log('navigateToNote:', { grid: note.position, offset: this.canvasOffset });
+    // Use setTimeout with 0ms to ensure change detection runs before re-enabling transitions
+    setTimeout(() => {
+      this.canvasOffset.x = -note.position.gridX * cellWidth;
+      this.canvasOffset.y = -note.position.gridY * cellHeight;
 
-  // Trigger highlight after DOM update to avoid flicker
-  requestAnimationFrame(() => this.highlightNote(note.id));
+      console.log('navigateToNote:', { grid: note.position, offset: this.canvasOffset });
+
+      // Re-enable transition after a brief delay
+      setTimeout(() => {
+        this.isNavigating = false;
+        // Highlight after navigation is complete
+        setTimeout(() => {
+          if (this.activeNoteId === note.id) {
+            this.highlightNote(note.id);
+          }
+        }, 50);
+      }, 100);
+    }, 0);
   }
 }
