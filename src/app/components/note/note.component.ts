@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ElementRef, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, HostListener, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Note, CanvasSettings, GridPosition } from '../../models';
@@ -12,9 +12,9 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       class="note" 
       [class.dragging]="isDragging"
       [attr.data-note-id]="note.id"
-      [style.transform]="'translate(' + (5000 + (note.position.gridX * settings.cellWidth)) + 'px, ' + (5000 + (note.position.gridY * settings.cellHeight)) + 'px)'"
-      [style.width.px]="settings.cellWidth - 16"
-      [style.height.px]="settings.cellHeight - 16">
+      [style.transform]="isDragging ? null : 'translate(' + (5000 + (note.position.gridX * settings.cellWidth)) + 'px, ' + (5000 + (note.position.gridY * settings.cellHeight)) + 'px)'"
+      [style.width.px]="(note.size.width * settings.cellWidth) - 16"
+      [style.height.px]="(note.size.height * settings.cellHeight) - 16">
       
       <!-- Drag Handle -->
       <div class="drag-handle" 
@@ -28,8 +28,10 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       </div>
       
       <textarea 
+        #textarea
         class="note-content"
         [(ngModel)]="note.content"
+        (input)="onContentInput()"
         (blur)="onContentChange()"
         (mousedown)="onTextAreaMouseDown($event)"
         (click)="$event.stopPropagation()"
@@ -46,7 +48,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       padding: 8px;
       overflow: hidden;
-      transition: box-shadow 0.2s, transform 0.1s ease;
+      transition: box-shadow 0.2s;
       left: 0;
       top: 0;
       user-select: none;
@@ -63,8 +65,8 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
     .note.dragging {
       box-shadow: 0 5px 20px rgba(0,0,0,0.3);
       z-index: 1000;
-      transform: scale(1.02);
       cursor: grabbing;
+      transition: none;
     }
     
     .drag-handle {
@@ -165,8 +167,12 @@ export class NoteComponent {
   @Output() contentChanged = new EventEmitter<string>();
   @Output() delete = new EventEmitter<void>();
   @Output() positionChanged = new EventEmitter<GridPosition>();
+  @Output() sizeChanged = new EventEmitter<{ width: number; height: number }>();
   @Output() dragStarted = new EventEmitter<void>();
   @Output() dragEnded = new EventEmitter<void>();
+  @Output() dragMove = new EventEmitter<{ gridX: number; gridY: number; width: number; height: number }>();
+  
+  @ViewChild('textarea') textarea!: ElementRef<HTMLTextAreaElement>;
 
   isDragging = false;
   private dragStartX = 0;
@@ -188,13 +194,33 @@ export class NoteComponent {
       this.hasDragged = true;
       event.preventDefault();
       
-      const gridDeltaX = Math.round((event.clientX - this.dragStartX) / this.settings.cellWidth);
-      const gridDeltaY = Math.round((event.clientY - this.dragStartY) / this.settings.cellHeight);
+      // Calculate pixel delta (smooth movement)
+      const pixelDeltaX = event.clientX - this.dragStartX;
+      const pixelDeltaY = event.clientY - this.dragStartY;
       
-      // Update visual position during drag
-      const element = this.elementRef.nativeElement;
-      element.style.left = `${(this.originalPosition.gridX + gridDeltaX) * this.settings.cellWidth}px`;
-      element.style.top = `${(this.originalPosition.gridY + gridDeltaY) * this.settings.cellHeight}px`;
+      // Calculate grid position for overlap detection (rounded)
+      const gridDeltaX = Math.round(pixelDeltaX / this.settings.cellWidth);
+      const gridDeltaY = Math.round(pixelDeltaY / this.settings.cellHeight);
+      
+      // Emit current drag position for overlap detection
+      const currentGridX = this.originalPosition.gridX + gridDeltaX;
+      const currentGridY = this.originalPosition.gridY + gridDeltaY;
+      this.dragMove.emit({
+        gridX: currentGridX,
+        gridY: currentGridY,
+        width: this.note.size.width,
+        height: this.note.size.height
+      });
+      
+      // Update visual position during drag using smooth pixel movement
+      const noteElement = this.elementRef.nativeElement.querySelector('.note') as HTMLElement;
+      if (noteElement) {
+        const baseX = 5000 + (this.originalPosition.gridX * this.settings.cellWidth);
+        const baseY = 5000 + (this.originalPosition.gridY * this.settings.cellHeight);
+        const translateX = baseX + pixelDeltaX;
+        const translateY = baseY + pixelDeltaY;
+        noteElement.style.transform = `translate(${translateX}px, ${translateY}px) scale(1.02)`;
+      }
     }
   }
 
@@ -205,25 +231,31 @@ export class NoteComponent {
     this.isDragging = false;
     
     if (this.hasDragged) {
-      // Calculate final grid position
-      const element = this.elementRef.nativeElement;
-      const computedStyle = getComputedStyle(element);
-      const left = parseInt(computedStyle.left);
-      const top = parseInt(computedStyle.top);
-      
-      const newPosition: GridPosition = {
-        gridX: Math.round(left / this.settings.cellWidth),
-        gridY: Math.round(top / this.settings.cellHeight)
-      };
+      // Calculate final grid position from the current transform
+      const noteElement = this.elementRef.nativeElement.querySelector('.note') as HTMLElement;
+      if (noteElement) {
+        const transform = noteElement.style.transform;
+        
+        // Parse the translate values from the transform
+        const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (match) {
+          const translateX = parseFloat(match[1]);
+          const translateY = parseFloat(match[2]);
+          
+          const newPosition: GridPosition = {
+            gridX: Math.round((translateX - 5000) / this.settings.cellWidth),
+            gridY: Math.round((translateY - 5000) / this.settings.cellHeight)
+          };
 
-      // Only update if position actually changed
-      if (newPosition.gridX !== this.originalPosition.gridX || newPosition.gridY !== this.originalPosition.gridY) {
-        this.positionChanged.emit(newPosition);
+          // Only update if position actually changed
+          if (newPosition.gridX !== this.originalPosition.gridX || newPosition.gridY !== this.originalPosition.gridY) {
+            this.positionChanged.emit(newPosition);
+          }
+        }
+        
+        // Reset transform (parent will update it)
+        noteElement.style.transform = '';
       }
-      
-      // Reset visual position (parent will update it)
-      element.style.left = '';
-      element.style.top = '';
       
       // Prevent the click event from bubbling to canvas
       event.stopPropagation();
@@ -239,6 +271,15 @@ export class NoteComponent {
     event.preventDefault();
     event.stopPropagation();
     
+    // Set initial transform position BEFORE setting isDragging to true
+    const noteElement = this.elementRef.nativeElement.querySelector('.note') as HTMLElement;
+    if (noteElement) {
+      const translateX = 5000 + (this.note.position.gridX * this.settings.cellWidth);
+      const translateY = 5000 + (this.note.position.gridY * this.settings.cellHeight);
+      noteElement.style.transform = `translate(${translateX}px, ${translateY}px) scale(1.02)`;
+    }
+    
+    // Now set isDragging after the transform is already in place
     this.isDragging = true;
     this.hasDragged = false;
     this.dragStartX = event.clientX;
@@ -266,6 +307,40 @@ export class NoteComponent {
       width: this.note.size.width * this.settings.cellWidth - 16,
       height: this.note.size.height * this.settings.cellHeight - 16
     };
+  }
+
+  onContentInput(): void {
+    if (!this.textarea) return;
+    
+    const textarea = this.textarea.nativeElement;
+    const noteElement = this.elementRef.nativeElement.querySelector('.note') as HTMLElement;
+    
+    if (!noteElement) return;
+    
+    // Check if content is overflowing
+    const isOverflowingHeight = textarea.scrollHeight > textarea.clientHeight;
+    const isOverflowingWidth = textarea.scrollWidth > textarea.clientWidth;
+    
+    let newWidth = this.note.size.width;
+    let newHeight = this.note.size.height;
+    let hasChanged = false;
+    
+    // Expand vertically if content overflows
+    if (isOverflowingHeight) {
+      newHeight = Math.ceil(textarea.scrollHeight / this.settings.cellHeight) + 0.5;
+      hasChanged = true;
+    }
+    
+    // Expand horizontally if content overflows (for long lines without breaks)
+    if (isOverflowingWidth) {
+      newWidth = Math.ceil(textarea.scrollWidth / this.settings.cellWidth) + 0.5;
+      hasChanged = true;
+    }
+    
+    // Emit size change if dimensions changed
+    if (hasChanged && (newWidth !== this.note.size.width || newHeight !== this.note.size.height)) {
+      this.sizeChanged.emit({ width: newWidth, height: newHeight });
+    }
   }
 
   onContentChange(): void {

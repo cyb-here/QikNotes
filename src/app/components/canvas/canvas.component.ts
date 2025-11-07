@@ -89,6 +89,8 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
               [class.no-transition]="isNavigating && note.id === activeNoteId"
               (contentChanged)="updateNoteContent(note.id, $event)"
               (positionChanged)="updateNotePosition(note.id, $event)"
+              (sizeChanged)="updateNoteSize(note.id, $event)"
+              (dragMove)="onNoteDragMove(note.id, $event)"
               (delete)="deleteNote(note.id)"
               (dragStarted)="onNoteDragStart()"
               (dragEnded)="onNoteDragEnd()">
@@ -610,6 +612,108 @@ export class CanvasComponent implements OnInit, OnDestroy {
     });
   }
 
+  updateNoteSize(noteId: string, newSize: { width: number; height: number }): void {
+    // Find the note being resized
+    const note = this.notes.find(n => n.id === noteId);
+    if (!note) return;
+
+    // Check for collisions and adjust other notes if needed
+    this.adjustNotesForResize(note, newSize);
+
+    // Update the note size
+    this.notesService.updateNoteSize(noteId, newSize).catch((error: unknown) => {
+      console.error('Error updating note size:', error);
+    });
+  }
+
+  private adjustNotesForResize(resizingNote: Note, newSize: { width: number; height: number }): void {
+    const oldSize = resizingNote.size;
+    
+    // Calculate the bounds of the resizing note
+    const newRight = resizingNote.position.gridX + newSize.width;
+    const newBottom = resizingNote.position.gridY + newSize.height;
+
+    // Only check if note is expanding
+    if (newSize.width <= oldSize.width && newSize.height <= oldSize.height) {
+      return;
+    }
+
+    // Find notes that would be overlapped and shrink them
+    for (const otherNote of this.notes) {
+      if (otherNote.id === resizingNote.id) continue;
+
+      const otherLeft = otherNote.position.gridX;
+      const otherRight = otherNote.position.gridX + otherNote.size.width;
+      const otherTop = otherNote.position.gridY;
+      const otherBottom = otherNote.position.gridY + otherNote.size.height;
+
+      // Check for overlap
+      const overlapsX = otherLeft < newRight && otherRight > resizingNote.position.gridX;
+      const overlapsY = otherTop < newBottom && otherBottom > resizingNote.position.gridY;
+
+      if (overlapsX && overlapsY) {
+        // Calculate how much to shrink the other note
+        let newWidth = otherNote.size.width;
+        let newHeight = otherNote.size.height;
+
+        // Shrink horizontally if needed
+        if (otherLeft >= resizingNote.position.gridX && otherLeft < newRight) {
+          // Other note starts within the expanding note's new width
+          const availableWidth = otherRight - newRight;
+          if (availableWidth > 0.5) {
+            // Move the note to start after the expanding note
+            const newPosition: GridPosition = {
+              gridX: newRight,
+              gridY: otherNote.position.gridY
+            };
+            newWidth = availableWidth;
+            this.notesService.updateNotePosition(otherNote.id, newPosition).catch((error: unknown) => {
+              console.error('Error repositioning note:', error);
+            });
+          } else {
+            // Not enough space, shrink to minimum
+            newWidth = 0.5;
+          }
+        } else if (otherRight > resizingNote.position.gridX && otherRight <= newRight) {
+          // Other note ends within the expanding note's new width
+          const availableWidth = resizingNote.position.gridX - otherLeft;
+          newWidth = Math.max(0.5, availableWidth);
+        }
+
+        // Shrink vertically if needed
+        if (otherTop >= resizingNote.position.gridY && otherTop < newBottom) {
+          // Other note starts within the expanding note's new height
+          const availableHeight = otherBottom - newBottom;
+          if (availableHeight > 0.5) {
+            // Move the note to start after the expanding note
+            const newPosition: GridPosition = {
+              gridX: otherNote.position.gridX,
+              gridY: newBottom
+            };
+            newHeight = availableHeight;
+            this.notesService.updateNotePosition(otherNote.id, newPosition).catch((error: unknown) => {
+              console.error('Error repositioning note:', error);
+            });
+          } else {
+            // Not enough space, shrink to minimum
+            newHeight = 0.5;
+          }
+        } else if (otherBottom > resizingNote.position.gridY && otherBottom <= newBottom) {
+          // Other note ends within the expanding note's new height
+          const availableHeight = resizingNote.position.gridY - otherTop;
+          newHeight = Math.max(0.5, availableHeight);
+        }
+
+        // Apply the new size if it changed
+        if (newWidth !== otherNote.size.width || newHeight !== otherNote.size.height) {
+          this.notesService.updateNoteSize(otherNote.id, { width: newWidth, height: newHeight }).catch((error: unknown) => {
+            console.error('Error resizing note:', error);
+          });
+        }
+      }
+    }
+  }
+
   deleteNote(noteId: string): void {
     this.notesService.deleteNote(noteId).catch(error => {
       console.error('Error deleting note:', error);
@@ -646,6 +750,47 @@ export class CanvasComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.isDraggingNote = false;
     }, 50);
+    
+    // Reset z-index for all notes after drag ends
+    this.notes.forEach(note => {
+      const noteElement = document.querySelector(`[data-note-id="${note.id}"]`) as HTMLElement;
+      if (noteElement) {
+        noteElement.style.zIndex = '';
+      }
+    });
+  }
+
+  onNoteDragMove(draggedNoteId: string, dragBounds: { gridX: number; gridY: number; width: number; height: number }): void {
+    // Check each note for overlap with the dragging note
+    this.notes.forEach(note => {
+      if (note.id === draggedNoteId) return;
+
+      // Calculate if notes overlap
+      const noteLeft = note.position.gridX;
+      const noteRight = note.position.gridX + note.size.width;
+      const noteTop = note.position.gridY;
+      const noteBottom = note.position.gridY + note.size.height;
+
+      const dragLeft = dragBounds.gridX;
+      const dragRight = dragBounds.gridX + dragBounds.width;
+      const dragTop = dragBounds.gridY;
+      const dragBottom = dragBounds.gridY + dragBounds.height;
+
+      // Check for overlap
+      const overlaps = !(noteRight <= dragLeft || noteLeft >= dragRight || 
+                        noteBottom <= dragTop || noteTop >= dragBottom);
+
+      const noteElement = document.querySelector(`[data-note-id="${note.id}"]`) as HTMLElement;
+      if (noteElement) {
+        if (overlaps) {
+          // Move overlapping note behind (lower z-index)
+          noteElement.style.zIndex = '1';
+        } else {
+          // Reset z-index for non-overlapping notes
+          noteElement.style.zIndex = '';
+        }
+      }
+    });
   }
 
   private highlightNote(noteId: string): void {

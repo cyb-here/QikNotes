@@ -86,15 +86,26 @@ export class NotesService {
   }
 
   async updateNotePosition(noteId: string, newPosition: GridPosition): Promise<void> {
-  const note = this.notes.find(n => n.id === noteId);
-  if (note) {
-    note.position = newPosition;
-    note.updatedAt = new Date();
-    await this.storage.saveNote(note);
-    this.notesSubject.next([...this.notes]);
-    console.log('Note position updated:', noteId, newPosition);
+    const note = this.notes.find(n => n.id === noteId);
+    if (note) {
+      note.position = newPosition;
+      note.updatedAt = new Date();
+      await this.storage.saveNote(note);
+      this.notesSubject.next([...this.notes]);
+      console.log('Note position updated:', noteId, newPosition);
+    }
   }
-}
+
+  async updateNoteSize(noteId: string, newSize: { width: number; height: number }): Promise<void> {
+    const note = this.notes.find(n => n.id === noteId);
+    if (note) {
+      note.size = newSize;
+      note.updatedAt = new Date();
+      await this.storage.saveNote(note);
+      this.notesSubject.next([...this.notes]);
+      console.log('Note size updated:', noteId, newSize);
+    }
+  }
 
   private generateId(): string {
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
