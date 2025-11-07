@@ -79,6 +79,11 @@ body.dark-mode .note {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
 }
 
+body.dark-mode .note.focused {
+  border-color: #1f6feb !important;
+  box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.4), 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
 body.dark-mode .note-content {
   color: #c9d1d9 !important;
 }
@@ -216,6 +221,13 @@ body.oled-mode .note {
   border: 1px solid #333 !important;
   color: #e6eef6 !important;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 
+              0 4px 12px rgba(255, 255, 255, 0.05) !important;
+}
+
+body.oled-mode .note.focused {
+  border-color: #0b84ff !important;
+  box-shadow: 0 0 0 2px rgba(11, 132, 255, 0.5), 
+              0 0 0 1px rgba(255, 255, 255, 0.1), 
               0 4px 12px rgba(255, 255, 255, 0.05) !important;
 }
 

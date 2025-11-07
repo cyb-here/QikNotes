@@ -11,6 +11,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
     <div 
       class="note" 
       [class.dragging]="isDragging"
+      [class.focused]="isFocused"
       [attr.data-note-id]="note.id"
       [style.transform]="'translate(' + (5000 + (note.position.gridX * settings.cellWidth)) + 'px, ' + (5000 + (note.position.gridY * settings.cellHeight)) + 'px)'"
       [style.width.px]="(note.size.width * settings.cellWidth) - 16"
@@ -33,6 +34,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
         contenteditable="true"
         (input)="onContentInput()"
         (blur)="onContentChange()"
+        (focus)="onContentFocus()"
         (mousedown)="onTextAreaMouseDown($event)"
         (click)="$event.stopPropagation()"
         data-placeholder="Start typing...">
@@ -67,6 +69,12 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       z-index: 1000;
       cursor: grabbing;
       transition: none;
+    }
+
+    .note.focused {
+      border-color: #4285f4;
+      box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.3), 0 2px 8px rgba(0,0,0,0.1);
+      z-index: 10;
     }
     
     .drag-handle {
@@ -185,6 +193,7 @@ export class NoteComponent implements AfterViewInit {
   @ViewChild('contentEditable') contentEditable!: ElementRef<HTMLDivElement>;
 
   isDragging = false;
+  isFocused = false;
   private dragStartX = 0;
   private dragStartY = 0;
   private originalPosition: GridPosition = { gridX: 0, gridY: 0 };
@@ -421,6 +430,11 @@ export class NoteComponent implements AfterViewInit {
       const content = this.contentEditable.nativeElement.innerHTML;
       this.contentChanged.emit(content);
     }
+    this.isFocused = false;
+  }
+
+  onContentFocus(): void {
+    this.isFocused = true;
   }
 
   onDelete(event: MouseEvent): void {
