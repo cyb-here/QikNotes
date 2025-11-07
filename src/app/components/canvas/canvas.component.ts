@@ -397,8 +397,14 @@ export class CanvasComponent implements OnInit, OnDestroy {
       }
     }
     
-    // Handle spacebar for canvas dragging
+    // Handle spacebar for canvas dragging (but not when typing in textarea)
     if (event.code === 'Space' && !event.repeat) {
+      // Check if user is typing in a textarea or input
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+        return; // Allow normal space typing
+      }
+      
       event.preventDefault();
       this.isSpacePressed = true;
       if (!this.isDraggingCanvas) {
@@ -410,6 +416,12 @@ export class CanvasComponent implements OnInit, OnDestroy {
   @HostListener('window:keyup', ['$event'])
   onKeyUp(event: KeyboardEvent): void {
     if (event.code === 'Space') {
+      // Check if user was typing in a textarea or input
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+        return; // Don't interfere with typing
+      }
+      
       event.preventDefault();
       this.isSpacePressed = false;
       if (!this.isDraggingCanvas) {

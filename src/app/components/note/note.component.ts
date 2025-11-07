@@ -140,10 +140,8 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       cursor: text;
       background: transparent;
       user-select: text;
-      white-space: pre;
-      overflow-wrap: normal;
-      word-wrap: normal;
       overflow: hidden;
+      white-space: nowrap;
     }
 
     .note.dragging .note-content {
