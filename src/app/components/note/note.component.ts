@@ -12,7 +12,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       class="note" 
       [class.dragging]="isDragging"
       [attr.data-note-id]="note.id"
-      [style.transform]="isDragging ? null : 'translate(' + (5000 + (note.position.gridX * settings.cellWidth)) + 'px, ' + (5000 + (note.position.gridY * settings.cellHeight)) + 'px)'"
+      [style.transform]="'translate(' + (5000 + (note.position.gridX * settings.cellWidth)) + 'px, ' + (5000 + (note.position.gridY * settings.cellHeight)) + 'px)'"
       [style.width.px]="(note.size.width * settings.cellWidth) - 16"
       [style.height.px]="(note.size.height * settings.cellHeight) - 16">
       
