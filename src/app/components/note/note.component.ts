@@ -140,7 +140,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       cursor: text;
       background: transparent;
       user-select: text;
-      overflow: auto;
+      overflow: hidden;
       white-space: pre-wrap;
       word-wrap: break-word;
     }
@@ -337,16 +337,46 @@ export class NoteComponent implements AfterViewInit {
     // Update note content from contenteditable
     this.note.content = contentDiv.innerHTML;
     
+    // Use requestAnimationFrame to ensure DOM has updated before measuring
+    requestAnimationFrame(() => {
+      this.calculateAndEmitSize(contentDiv);
+    });
+  }
+
+  private calculateAndEmitSize(contentDiv: HTMLDivElement): void {
     // Calculate required dimensions based on content
     const minWidth = 1; // Minimum 1 grid unit
     const minHeight = 1; // Minimum 1 grid unit
     
-    // Calculate height based on content
-    const requiredHeight = (contentDiv.scrollHeight + 50) / this.settings.cellHeight;
+    // Save current height and temporarily set to auto to get natural height
+    const currentHeight = contentDiv.style.height;
+    contentDiv.style.height = 'auto';
+    
+    // Force reflow
+    void contentDiv.offsetHeight;
+    
+    // Calculate height based on natural scrollHeight
+    const naturalHeight = contentDiv.scrollHeight;
+    
+    // Restore original height
+    contentDiv.style.height = currentHeight;
+    
+    const requiredHeight = (naturalHeight + 50) / this.settings.cellHeight;
     const newHeight = Math.max(minHeight, Math.ceil(requiredHeight * 2) / 2); // Round to 0.5 units
     
     // Calculate width by checking content width
     const textContent = contentDiv.textContent || '';
+    
+    // If content is empty or only whitespace, set to minimum width
+    if (!textContent.trim()) {
+      const minimalSize = { width: minWidth, height: Math.max(minHeight, newHeight) };
+      if (minimalSize.width !== this.note.size.width || minimalSize.height !== this.note.size.height) {
+        console.log('Empty content - shrinking to minimum:', minimalSize);
+        this.sizeChanged.emit(minimalSize);
+      }
+      return;
+    }
+    
     const lines = textContent.split('\n');
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -355,7 +385,8 @@ export class NoteComponent implements AfterViewInit {
       
       let maxLineWidth = 0;
       for (const line of lines) {
-        const metrics = context.measureText(line);
+        // Measure each line, including empty lines
+        const metrics = context.measureText(line || ' '); // Use space for empty lines
         if (metrics.width > maxLineWidth) {
           maxLineWidth = metrics.width;
         }
@@ -365,8 +396,21 @@ export class NoteComponent implements AfterViewInit {
       const requiredWidth = (maxLineWidth + 30) / this.settings.cellWidth;
       const newWidth = Math.max(minWidth, Math.ceil(requiredWidth * 2) / 2); // Round to 0.5 units
       
-      // Emit size change if dimensions changed
+      // Log size calculations for debugging
+      console.log('Size calculation:', {
+        textLength: textContent.length,
+        lines: lines.length,
+        maxLineWidth,
+        requiredWidth,
+        newWidth,
+        newHeight,
+        currentWidth: this.note.size.width,
+        currentHeight: this.note.size.height
+      });
+      
+      // Always emit size change to ensure proper shrinking
       if (newWidth !== this.note.size.width || newHeight !== this.note.size.height) {
+        console.log('Emitting size change:', { width: newWidth, height: newHeight });
         this.sizeChanged.emit({ width: newWidth, height: newHeight });
       }
     }

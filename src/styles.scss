@@ -177,6 +177,26 @@ body.dark-mode .notes-count {
   color: #8b949e !important;
 }
 
+body.dark-mode .font-size-dropdown {
+  background: #21262d !important;
+  color: #c9d1d9 !important;
+  border-color: #30363d !important;
+}
+
+body.dark-mode .font-size-dropdown:hover {
+  background: #30363d !important;
+  border-color: #484f58 !important;
+}
+
+body.dark-mode .font-size-dropdown:focus {
+  border-color: #1f6feb !important;
+}
+
+body.dark-mode .font-size-dropdown option {
+  background: #21262d !important;
+  color: #c9d1d9 !important;
+}
+
 /* OLED / True Black Mode */
 body.oled-mode {
   background-color: #000000;
@@ -261,5 +281,25 @@ body.oled-mode .toolbar-info {
 body.oled-mode .coordinates,
 body.oled-mode .notes-count {
   color: #cbd6e2 !important;
+}
+
+body.oled-mode .font-size-dropdown {
+  background: #0a0a0a !important;
+  color: #e6eef6 !important;
+  border: 1px solid #333 !important;
+}
+
+body.oled-mode .font-size-dropdown:hover {
+  background: #1a1a1a !important;
+  border-color: #444 !important;
+}
+
+body.oled-mode .font-size-dropdown:focus {
+  border-color: #0b84ff !important;
+}
+
+body.oled-mode .font-size-dropdown option {
+  background: #0a0a0a !important;
+  color: #e6eef6 !important;
 }
 

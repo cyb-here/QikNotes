@@ -43,6 +43,25 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
           <button (mousedown)="$event.preventDefault()" (click)="formatText('strikeThrough')" class="toolbar-btn format-btn" title="Strikethrough">
             <s>S</s>
           </button>
+          <select (mousedown)="$event.stopPropagation()" (change)="setFontSize($event)" class="font-size-dropdown" title="Font Size">
+            <option value="">Size</option>
+            <option value="8">8px</option>
+            <option value="10">10px</option>
+            <option value="12">12px</option>
+            <option value="14">14px</option>
+            <option value="16">16px</option>
+            <option value="18">18px</option>
+            <option value="20">20px</option>
+            <option value="24">24px</option>
+            <option value="28">28px</option>
+            <option value="32">32px</option>
+            <option value="36">36px</option>
+            <option value="42">42px</option>
+            <option value="48">48px</option>
+            <option value="56">56px</option>
+            <option value="64">64px</option>
+            <option value="72">72px</option>
+          </select>
           <button (mousedown)="$event.preventDefault()" (click)="increaseFontSize()" class="toolbar-btn format-btn" title="Increase Font Size">
             A+
           </button>
@@ -275,6 +294,26 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
     .format-btn:active {
       background: #e0e0e0;
       transform: scale(0.95);
+    }
+
+    .font-size-dropdown {
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      font-size: 13px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .font-size-dropdown:hover {
+      background: #f5f5f5;
+      border-color: #ccc;
+    }
+
+    .font-size-dropdown:focus {
+      border-color: #007bff;
     }
 
     .toolbar-info {
@@ -1160,26 +1199,51 @@ export class CanvasComponent implements OnInit, OnDestroy {
       const range = selection.getRangeAt(0);
       console.log('range text:', range.toString());
       
-      // Get current font size
-      let currentSize = 7; // default
-      if (range.startContainer.parentElement) {
-        const fontTag = range.startContainer.parentElement.closest('font');
-        if (fontTag) {
-          currentSize = parseInt(fontTag.getAttribute('size') || '7');
-        }
+      // If no text is selected, do nothing
+      if (range.toString().length === 0) {
+        console.log('No text selected');
+        return;
       }
       
-      // Increment size (max 18)
-      const newSize = Math.min(18, currentSize + 1);
-      document.execCommand('fontSize', false, newSize.toString());
+      // Get current font size from selected text
+      let currentSize = 14; // default in px
+      const parentElement = range.startContainer.parentElement;
+      if (parentElement) {
+        const computedStyle = window.getComputedStyle(parentElement);
+        currentSize = parseInt(computedStyle.fontSize);
+        console.log('Current font size:', currentSize);
+      }
+      
+      // Increment size (max 72px) - big range for variety
+      const newSize = Math.min(72, currentSize + 4); // Increase by 4px, max 72px
+      console.log('New font size:', newSize);
+      
+      // Wrap selection in span with new font size
+      const span = document.createElement('span');
+      span.style.fontSize = newSize + 'px';
+      
+      try {
+        const fragment = range.extractContents();
+        span.appendChild(fragment);
+        range.insertNode(span);
+        console.log('Font size applied successfully');
+        
+        // Select the newly created span
+        range.selectNodeContents(span);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } catch (e) {
+        console.error('Error applying font size:', e);
+      }
       
       // Trigger input event
       const event = new Event('input', { bubbles: true });
       activeElement.dispatchEvent(event);
       
       // Save selection
-      if (selection.rangeCount > 0) {
-        this.savedSelection = selection.getRangeAt(0).cloneRange();
+      const newSelection = window.getSelection();
+      if (newSelection && newSelection.rangeCount > 0) {
+        this.savedSelection = newSelection.getRangeAt(0).cloneRange();
         this.savedElement = activeElement as HTMLElement;
       }
       
@@ -1213,26 +1277,127 @@ export class CanvasComponent implements OnInit, OnDestroy {
       const range = selection.getRangeAt(0);
       console.log('range text:', range.toString());
       
-      // Get current font size
-      let currentSize = 7; // default
-      if (range.startContainer.parentElement) {
-        const fontTag = range.startContainer.parentElement.closest('font');
-        if (fontTag) {
-          currentSize = parseInt(fontTag.getAttribute('size') || '7');
-        }
+      // If no text is selected, do nothing
+      if (range.toString().length === 0) {
+        console.log('No text selected');
+        return;
       }
       
-      // Decrement size (min 4)
-      const newSize = Math.max(4, currentSize - 1);
-      document.execCommand('fontSize', false, newSize.toString());
+      // Get current font size from selected text
+      let currentSize = 14; // default in px
+      const parentElement = range.startContainer.parentElement;
+      if (parentElement) {
+        const computedStyle = window.getComputedStyle(parentElement);
+        currentSize = parseInt(computedStyle.fontSize);
+        console.log('Current font size:', currentSize);
+      }
+      
+      // Decrement size (min 6px) - big range for variety
+      const newSize = Math.max(6, currentSize - 4); // Decrease by 4px, min 6px
+      console.log('New font size:', newSize);
+      
+      // Wrap selection in span with new font size
+      const span = document.createElement('span');
+      span.style.fontSize = newSize + 'px';
+      
+      try {
+        const fragment = range.extractContents();
+        span.appendChild(fragment);
+        range.insertNode(span);
+        console.log('Font size applied successfully');
+        
+        // Select the newly created span
+        range.selectNodeContents(span);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } catch (e) {
+        console.error('Error applying font size:', e);
+      }
       
       // Trigger input event
       const event = new Event('input', { bubbles: true });
       activeElement.dispatchEvent(event);
       
       // Save selection
-      if (selection.rangeCount > 0) {
-        this.savedSelection = selection.getRangeAt(0).cloneRange();
+      const newSelection = window.getSelection();
+      if (newSelection && newSelection.rangeCount > 0) {
+        this.savedSelection = newSelection.getRangeAt(0).cloneRange();
+        this.savedElement = activeElement as HTMLElement;
+      }
+      
+      (activeElement as HTMLElement).focus();
+    }
+  }
+
+  setFontSize(event: Event): void {
+    const selectElement = event.target as HTMLSelectElement;
+    const size = selectElement.value;
+    
+    // Reset dropdown to placeholder
+    selectElement.value = '';
+    
+    if (!size) return;
+    
+    console.log('setFontSize called with size:', size);
+    
+    // Try to use saved selection first
+    if (this.savedSelection && this.savedElement) {
+      this.savedElement.focus();
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(this.savedSelection);
+      }
+    }
+    
+    const activeElement = document.activeElement;
+    console.log('activeElement:', activeElement);
+    
+    if (activeElement && activeElement.getAttribute('contenteditable') === 'true') {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        console.log('No selection');
+        return;
+      }
+      
+      const range = selection.getRangeAt(0);
+      console.log('range text:', range.toString());
+      
+      // If no text is selected, do nothing
+      if (range.toString().length === 0) {
+        console.log('No text selected');
+        return;
+      }
+      
+      const newSize = parseInt(size);
+      console.log('Setting font size to:', newSize);
+      
+      // Wrap selection in span with new font size
+      const span = document.createElement('span');
+      span.style.fontSize = newSize + 'px';
+      
+      try {
+        const fragment = range.extractContents();
+        span.appendChild(fragment);
+        range.insertNode(span);
+        console.log('Font size applied successfully');
+        
+        // Select the newly created span
+        range.selectNodeContents(span);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } catch (e) {
+        console.error('Error applying font size:', e);
+      }
+      
+      // Trigger input event
+      const inputEvent = new Event('input', { bubbles: true });
+      activeElement.dispatchEvent(inputEvent);
+      
+      // Save selection
+      const newSelection = window.getSelection();
+      if (newSelection && newSelection.rangeCount > 0) {
+        this.savedSelection = newSelection.getRangeAt(0).cloneRange();
         this.savedElement = activeElement as HTMLElement;
       }
       
