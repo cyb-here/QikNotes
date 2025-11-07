@@ -52,6 +52,28 @@ export class NotesService {
     this.notesSubject.next([...this.notes]);
   }
 
+  async deleteAllNotes(): Promise<void> {
+    try {
+      // Clear IndexedDB store
+      if (this.storage && typeof this.storage.clearNotes === 'function') {
+        await this.storage.clearNotes();
+      } else {
+        // Fallback to deleting individual notes if clearNotes is unavailable
+        for (const n of [...this.notes]) {
+          await this.storage.deleteNote(n.id);
+        }
+      }
+
+      // Clear in-memory list and notify subscribers
+      this.notes = [];
+      this.notesSubject.next([]);
+      console.log('All notes deleted');
+    } catch (error) {
+      console.error('Failed to delete all notes:', error);
+      throw error;
+    }
+  }
+
   private async loadNotes(): Promise<void> {
     try {
       this.notes = await this.storage.getNotes();

@@ -38,6 +38,30 @@ export class CanvasService {
     await this.saveAndNotify();
   }
 
+  async zoomIn(): Promise<void> {
+    this.state.viewport.zoom = Math.min(3, this.state.viewport.zoom + 0.1);
+    await this.saveAndNotify();
+  }
+
+  async zoomOut(): Promise<void> {
+    this.state.viewport.zoom = Math.max(0.2, this.state.viewport.zoom - 0.1);
+    await this.saveAndNotify();
+  }
+
+  async resetZoom(): Promise<void> {
+    this.state.viewport.zoom = 1;
+    await this.saveAndNotify();
+  }
+
+  /**
+   * Zoom by a multiplicative factor. Useful for smooth wheel/pinch zoom.
+   */
+  async zoomBy(factor: number): Promise<void> {
+    const next = this.state.viewport.zoom * factor;
+    this.state.viewport.zoom = Math.min(3, Math.max(0.2, next));
+    await this.saveAndNotify();
+  }
+
   private async loadState(): Promise<void> {
     try {
       const savedState = await this.storage.getCanvasState();

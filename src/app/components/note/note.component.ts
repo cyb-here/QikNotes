@@ -11,10 +11,10 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
     <div 
       class="note" 
       [class.dragging]="isDragging"
-      [style.left.px]="getNotePosition().left"
-      [style.top.px]="getNotePosition().top"
-      [style.width.px]="getNoteSize().width"
-      [style.height.px]="getNoteSize().height">
+      [attr.data-note-id]="note.id"
+      [style.transform]="'translate(' + (5000 + (note.position.gridX * settings.cellWidth)) + 'px, ' + (5000 + (note.position.gridY * settings.cellHeight)) + 'px)'"
+      [style.width.px]="settings.cellWidth - 16"
+      [style.height.px]="settings.cellHeight - 16">
       
       <!-- Drag Handle -->
       <div class="drag-handle" 
@@ -46,8 +46,18 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       padding: 8px;
       overflow: hidden;
-      transition: box-shadow 0.2s, transform 0.1s;
+      transition: box-shadow 0.2s, transform 0.1s ease;
+      left: 0;
+      top: 0;
       user-select: none;
+      /* Position relative to center of notes-container */
+      left: calc(5000px + (var(--note-x)));
+      top: calc(5000px + (var(--note-y)));
+      width: calc(var(--note-width) - 16px);
+      height: calc(var(--note-height) - 16px);
+      transform-origin: center center;
+      will-change: transform;
+      z-index: 1;
     }
 
     .note.dragging {
@@ -132,6 +142,22 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
 
     .note.dragging .note-content {
       pointer-events: none;
+    }
+
+    @keyframes highlight {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 4px 20px rgba(66, 133, 244, 0.3);
+      }
+    }
+
+    .note.highlight {
+      animation: highlight 1s ease-in-out;
+      border-color: #4285f4;
     }
   `]
 })

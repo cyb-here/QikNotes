@@ -114,6 +114,29 @@ export class StorageService {
     }
   }
 
+  async clearNotes(): Promise<void> {
+    try {
+      const db = await this.initializeDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['notes'], 'readwrite');
+        const store = transaction.objectStore('notes');
+        const request = store.clear();
+
+        request.onerror = () => {
+          console.error('Error clearing notes:', request.error);
+          reject(request.error);
+        };
+        request.onsuccess = () => {
+          console.log('All notes cleared');
+          resolve();
+        };
+      });
+    } catch (error) {
+      console.error('Failed to clear notes:', error);
+      throw error;
+    }
+  }
+
   async saveCanvasState(state: CanvasState): Promise<void> {
     try {
       const db = await this.initializeDB();

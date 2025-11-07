@@ -22,40 +22,44 @@ import { GridPosition } from '../../models';
   styles: [`
     .add-button {
       position: absolute;
-      width: 60px;
-      height: 60px;
+      width: 40px;
+      height: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       z-index: 1000;
       transform: translate(-50%, -50%);
+      pointer-events: all;
     }
 
     .add-button-icon {
-      width: 50px;
-      height: 50px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: #4285f4;
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
+      font-size: 20px;
       font-weight: bold;
       transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      border: 2px solid white;
+      transform-origin: center;
+      will-change: transform;
     }
 
     .add-button-icon:hover {
       background: #3367d6;
-      transform: scale(1.15);
-      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
 
     .add-button:active .add-button-icon {
-      transform: scale(0.95);
+      transform: scale(0.9);
+      background: #2850a7;
     }
   `]
 })
@@ -66,9 +70,9 @@ export class AddButtonComponent {
   @Output() addNote = new EventEmitter<GridPosition>();
 
   getPixelPosition(): { left: number, top: number } {
-    // Position at the center of the grid cell
-    const left = this.position.gridX * this.cellWidth + (this.cellWidth / 2);
-    const top = this.position.gridY * this.cellHeight + (this.cellHeight / 2);
+    // Position at the center of the grid cell, relative to canvas center (5000px offset)
+    const left = 5000 + (this.position.gridX * this.cellWidth) + (this.cellWidth / 2);
+    const top = 5000 + (this.position.gridY * this.cellHeight) + (this.cellHeight / 2);
     return { left, top };
   }
 
