@@ -141,7 +141,6 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       background: transparent;
       user-select: text;
       overflow: hidden;
-      white-space: nowrap;
     }
 
     .note.dragging .note-content {
@@ -319,33 +318,43 @@ export class NoteComponent {
     
     if (!noteElement) return;
     
-    // Check if content is overflowing
-    const isOverflowingHeight = textarea.scrollHeight > textarea.clientHeight + 2; // Add small buffer
-    const isOverflowingWidth = textarea.scrollWidth > textarea.clientWidth + 2; // Add small buffer
+    // Calculate required dimensions based on content
+    const minWidth = 1; // Minimum 1 grid unit
+    const minHeight = 1; // Minimum 1 grid unit
     
-    let newWidth = this.note.size.width;
-    let newHeight = this.note.size.height;
-    let hasChanged = false;
+    // Save original size
+    const originalHeight = textarea.style.height;
+    const originalWidth = textarea.style.width;
     
-    // Expand vertically if content overflows
-    if (isOverflowingHeight) {
-      // Calculate required height in grid units, add padding for note header/padding
-      const requiredHeight = (textarea.scrollHeight + 50) / this.settings.cellHeight;
-      newHeight = Math.max(this.note.size.height, Math.ceil(requiredHeight * 2) / 2); // Round to 0.5 units
-      hasChanged = true;
-    }
+    // Calculate height (set height to auto to get true content height)
+    textarea.style.height = 'auto';
+    const requiredHeight = (textarea.scrollHeight + 50) / this.settings.cellHeight;
+    const newHeight = Math.max(minHeight, Math.ceil(requiredHeight * 2) / 2); // Round to 0.5 units
+    textarea.style.height = originalHeight;
     
-    // Expand horizontally if content overflows (for long lines without breaks)
-    if (isOverflowingWidth) {
-      // Calculate required width in grid units, add padding for note borders/padding
-      const requiredWidth = (textarea.scrollWidth + 30) / this.settings.cellWidth;
-      newWidth = Math.max(this.note.size.width, Math.ceil(requiredWidth * 2) / 2); // Round to 0.5 units
-      hasChanged = true;
-    }
-    
-    // Emit size change if dimensions changed
-    if (hasChanged && (newWidth !== this.note.size.width || newHeight !== this.note.size.height)) {
-      this.sizeChanged.emit({ width: newWidth, height: newHeight });
+    // Calculate width by checking the longest line
+    const lines = textarea.value.split('\n');
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.font = window.getComputedStyle(textarea).font;
+      
+      let maxLineWidth = 0;
+      for (const line of lines) {
+        const metrics = context.measureText(line);
+        if (metrics.width > maxLineWidth) {
+          maxLineWidth = metrics.width;
+        }
+      }
+      
+      // Add padding for borders and padding (30px)
+      const requiredWidth = (maxLineWidth + 30) / this.settings.cellWidth;
+      const newWidth = Math.max(minWidth, Math.ceil(requiredWidth * 2) / 2); // Round to 0.5 units
+      
+      // Emit size change if dimensions changed
+      if (newWidth !== this.note.size.width || newHeight !== this.note.size.height) {
+        this.sizeChanged.emit({ width: newWidth, height: newHeight });
+      }
     }
   }
 
