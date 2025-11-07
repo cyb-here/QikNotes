@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, HostListener, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Note, CanvasState, GridPosition } from '../../models';
@@ -82,6 +82,18 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
           <button (click)="resetView()" class="toolbar-btn" title="Center and reset canvas position">
             Reset View
           </button>
+          <button (click)="exportNotes()" class="toolbar-btn" title="Export all notes as JSON">
+            📤 Export
+          </button>
+          <button (click)="importNotes()" class="toolbar-btn" title="Import notes from JSON">
+            📥 Import
+          </button>
+          <input 
+            #fileInput 
+            type="file" 
+            accept=".json" 
+            (change)="onFileSelected($event)" 
+            style="display: none">
           <button (click)="deleteAllNotes()" class="toolbar-btn danger" title="Delete all notes">Delete All</button>
         </div>
         <div class="zoom-controls toolbar-group">
@@ -383,6 +395,8 @@ export class CanvasComponent implements OnInit, OnDestroy {
   private boundGlobalWheelHandler: ((e: WheelEvent) => void) | null = null;
   private notesService = inject(NotesService);
   private canvasService = inject(CanvasService);
+
+  @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
   notes: Note[] = [];
   canvasState: CanvasState = {
@@ -1077,6 +1091,91 @@ export class CanvasComponent implements OnInit, OnDestroy {
       console.log('All notes removed from canvas');
     } catch (error) {
       console.error('Failed to delete all notes:', error);
+    }
+  }
+
+  exportNotes(): void {
+    if (this.notes.length === 0) {
+      alert('No notes to export!');
+      return;
+    }
+
+    // Create export data with timestamp
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      version: '1.0',
+      notes: this.notes
+    };
+
+    // Convert to JSON string
+    const jsonString = JSON.stringify(exportData, null, 2);
+    
+    // Create blob and download
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Generate filename with date
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.download = `qiknotes-export-${dateStr}.json`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    console.log(`Exported ${this.notes.length} notes`);
+  }
+
+  importNotes(): void {
+    // Trigger file input click
+    this.fileInput.nativeElement.click();
+  }
+
+  async onFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    
+    if (!file) return;
+    
+    try {
+      // Read file content
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      // Validate data structure
+      if (!data.notes || !Array.isArray(data.notes)) {
+        alert('Invalid file format! Expected a QikNotes export file.');
+        return;
+      }
+      
+      // Import notes (merge with existing)
+      let importedCount = 0;
+      for (const noteData of data.notes) {
+        // Validate note structure
+        if (!noteData.position || !noteData.content) {
+          console.warn('Skipping invalid note:', noteData);
+          continue;
+        }
+        
+        // Create note at original position
+        await this.notesService.createNote(
+          noteData.position,
+          noteData.content
+        );
+        importedCount++;
+      }
+      
+      alert(`Successfully imported ${importedCount} notes!`);
+      console.log(`Imported ${importedCount} notes from ${file.name}`);
+      
+    } catch (error) {
+      console.error('Import failed:', error);
+      alert('Failed to import notes. Please check the file format.');
+    } finally {
+      // Reset file input
+      input.value = '';
     }
   }
 
