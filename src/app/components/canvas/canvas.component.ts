@@ -30,9 +30,35 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
             {{ showAddButtons ? '✓ Quick Add' : '+ Quick Add' }}
           </button>
         </div>
+        <div class="toolbar-group formatting-group">
+          <button (mousedown)="$event.preventDefault()" (click)="formatText('bold')" class="toolbar-btn format-btn" title="Bold (Ctrl+B)">
+            <strong>B</strong>
+          </button>
+          <button (mousedown)="$event.preventDefault()" (click)="formatText('italic')" class="toolbar-btn format-btn" title="Italic (Ctrl+I)">
+            <em>I</em>
+          </button>
+          <button (mousedown)="$event.preventDefault()" (click)="formatText('underline')" class="toolbar-btn format-btn" title="Underline (Ctrl+U)">
+            <u>U</u>
+          </button>
+          <button (mousedown)="$event.preventDefault()" (click)="formatText('strikeThrough')" class="toolbar-btn format-btn" title="Strikethrough">
+            <s>S</s>
+          </button>
+          <button (mousedown)="$event.preventDefault()" (click)="increaseFontSize()" class="toolbar-btn format-btn" title="Increase Font Size">
+            A+
+          </button>
+          <button (mousedown)="$event.preventDefault()" (click)="decreaseFontSize()" class="toolbar-btn format-btn" title="Decrease Font Size">
+            A-
+          </button>
+        </div>
         <div class="toolbar-group">
           <button (click)="toggleGrid()" class="toolbar-btn">
             {{ canvasState.settings.showGrid ? '✓ Grid' : 'Grid' }}
+          </button>
+          <button (click)="cycleFontMode()" class="toolbar-btn" title="Toggle Font">
+            {{ fontMode === 'comic' ? '🎨 Comic' : (fontMode === 'serif' ? '📖 Serif' : '🔤 Sans') }}
+          </button>
+          <button (click)="cycleThemeMode()" class="toolbar-btn" title="Toggle Theme">
+            {{ themeMode === 'dark' ? '🌙 Dark' : (themeMode === 'oled' ? '⚫ OLED' : '☀️ Light') }}
           </button>
           <button (click)="resetView()" class="toolbar-btn" title="Center and reset canvas position">
             Reset View
@@ -228,6 +254,29 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
       border-right: none;
     }
 
+    .formatting-group {
+      border-left: 2px solid #ddd;
+    }
+
+    .format-btn {
+      min-width: 36px;
+      padding: 6px 10px;
+      font-weight: bold;
+    }
+
+    .format-btn strong,
+    .format-btn em,
+    .format-btn u,
+    .format-btn s {
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .format-btn:active {
+      background: #e0e0e0;
+      transform: scale(0.95);
+    }
+
     .toolbar-info {
       display: flex;
       align-items: center;
@@ -310,6 +359,13 @@ export class CanvasComponent implements OnInit, OnDestroy {
   canvasOffset = { x: 0, y: 0 };
   activeNoteId: string | null = null;
   isNavigating = false;
+  // themeMode: 'light' | 'dark' | 'oled'
+  themeMode: string = 'light';
+  // fontMode: 'sans' | 'comic' | 'serif'
+  fontMode: string = 'sans';
+  focusedTextarea: HTMLTextAreaElement | null = null;
+  private savedSelection: Range | null = null;
+  private savedElement: HTMLElement | null = null;
   private lastMouseX = 0;
   private lastMouseY = 0;
   private canvasMouseDownTime = 0;
@@ -381,28 +437,56 @@ export class CanvasComponent implements OnInit, OnDestroy {
   async onKeyPress(event: KeyboardEvent): Promise<void> {
     // Check if Ctrl/Cmd key is pressed
     if (event.ctrlKey || event.metaKey) {
-      switch(event.key) {
+      // Check if user is typing in a contenteditable or textarea
+      const target = event.target as HTMLElement;
+      const isInEditor = target.tagName === 'TEXTAREA' || target.getAttribute('contenteditable') === 'true';
+      
+      switch(event.key.toLowerCase()) {
         case '=':
         case '+':
-          event.preventDefault();
-          await this.zoomIn();
+          if (!isInEditor) {
+            event.preventDefault();
+            await this.zoomIn();
+          }
           break;
         case '-':
-          event.preventDefault();
-          await this.zoomOut();
+          if (!isInEditor) {
+            event.preventDefault();
+            await this.zoomOut();
+          }
           break;
         case '0':
-          event.preventDefault();
-          await this.resetZoom();
+          if (!isInEditor) {
+            event.preventDefault();
+            await this.resetZoom();
+          }
+          break;
+        case 'b':
+          if (isInEditor) {
+            event.preventDefault();
+            this.formatText('bold');
+          }
+          break;
+        case 'i':
+          if (isInEditor) {
+            event.preventDefault();
+            this.formatText('italic');
+          }
+          break;
+        case 'u':
+          if (isInEditor) {
+            event.preventDefault();
+            this.formatText('underline');
+          }
           break;
       }
     }
     
-    // Handle spacebar for canvas dragging (but not when typing in textarea)
+    // Handle spacebar for canvas dragging (but not when typing in editor)
     if (event.code === 'Space' && !event.repeat) {
-      // Check if user is typing in a textarea or input
+      // Check if user is typing in a contenteditable or textarea
       const target = event.target as HTMLElement;
-      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+      if (target.tagName === 'TEXTAREA' || target.getAttribute('contenteditable') === 'true') {
         return; // Allow normal space typing
       }
       
@@ -417,9 +501,9 @@ export class CanvasComponent implements OnInit, OnDestroy {
   @HostListener('window:keyup', ['$event'])
   onKeyUp(event: KeyboardEvent): void {
     if (event.code === 'Space') {
-      // Check if user was typing in a textarea or input
+      // Check if user was typing in a contenteditable or textarea
       const target = event.target as HTMLElement;
-      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+      if (target.tagName === 'TEXTAREA' || target.getAttribute('contenteditable') === 'true') {
         return; // Don't interfere with typing
       }
       
@@ -498,6 +582,49 @@ export class CanvasComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Load theme preference (supports 'light' | 'dark' | 'oled')
+    const savedTheme = localStorage.getItem('themeMode');
+    if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'oled') {
+      this.themeMode = savedTheme;
+    } else {
+      // Back-compat: check old boolean key 'darkMode'
+      const savedDarkMode = localStorage.getItem('darkMode');
+      if (savedDarkMode) {
+        try {
+          const wasDark = JSON.parse(savedDarkMode);
+          this.themeMode = wasDark ? 'dark' : 'light';
+        } catch {
+          this.themeMode = 'light';
+        }
+      }
+    }
+
+    // Apply body class for the active theme
+    document.body.classList.remove('dark-mode', 'oled-mode');
+    if (this.themeMode === 'dark') document.body.classList.add('dark-mode');
+    if (this.themeMode === 'oled') document.body.classList.add('oled-mode');
+
+    // Load font preference (supports 'sans' | 'comic' | 'serif')
+    const savedFont = localStorage.getItem('fontMode');
+    if (savedFont === 'sans' || savedFont === 'comic' || savedFont === 'serif') {
+      this.fontMode = savedFont;
+    }
+
+    // Apply body class for the active font
+    document.body.classList.remove('font-sans', 'font-comic', 'font-serif');
+    document.body.classList.add(`font-${this.fontMode}`);
+
+    // Listen for selection changes to save the selection
+    document.addEventListener('selectionchange', () => {
+      const selection = window.getSelection();
+      const activeElement = document.activeElement;
+      if (selection && selection.rangeCount > 0 && 
+          activeElement && activeElement.getAttribute('contenteditable') === 'true') {
+        this.savedSelection = selection.getRangeAt(0).cloneRange();
+        this.savedElement = activeElement as HTMLElement;
+      }
+    });
+    
     // Load notes
     this.notesService.getNotes().subscribe(notes => {
       this.notes = notes;
@@ -918,9 +1045,199 @@ export class CanvasComponent implements OnInit, OnDestroy {
     this.canvasService.toggleGrid();
   }
 
+  cycleFontMode(): void {
+    // Cycle through: sans -> comic -> serif -> sans
+    if (this.fontMode === 'sans') this.fontMode = 'comic';
+    else if (this.fontMode === 'comic') this.fontMode = 'serif';
+    else this.fontMode = 'sans';
+
+    // Persist
+    localStorage.setItem('fontMode', this.fontMode);
+
+    // Update body classes
+    document.body.classList.remove('font-sans', 'font-comic', 'font-serif');
+    document.body.classList.add(`font-${this.fontMode}`);
+  }
+
+  cycleThemeMode(): void {
+    // Cycle through: light -> dark -> oled -> light
+    if (this.themeMode === 'light') this.themeMode = 'dark';
+    else if (this.themeMode === 'dark') this.themeMode = 'oled';
+    else this.themeMode = 'light';
+
+    // Persist
+    localStorage.setItem('themeMode', this.themeMode);
+
+    // Update body classes
+    document.body.classList.remove('dark-mode', 'oled-mode');
+    if (this.themeMode === 'dark') document.body.classList.add('dark-mode');
+    if (this.themeMode === 'oled') document.body.classList.add('oled-mode');
+  }
+
   toggleAddButtons(): void {
     this.showAddButtons = !this.showAddButtons;
     console.log('Add button toggled. Now visible:', this.showAddButtons);
+  }
+
+  formatText(command: string): void {
+    console.log('formatText called with command:', command);
+    
+    // Try to use saved selection first
+    if (this.savedSelection && this.savedElement) {
+      console.log('Using saved selection');
+      this.savedElement.focus();
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(this.savedSelection);
+      }
+    }
+    
+    const activeElement = document.activeElement;
+    console.log('activeElement:', activeElement);
+    console.log('contenteditable:', activeElement?.getAttribute('contenteditable'));
+    
+    if (activeElement && activeElement.getAttribute('contenteditable') === 'true') {
+      // Save selection before executing command
+      const selection = window.getSelection();
+      console.log('selection:', selection);
+      console.log('rangeCount:', selection?.rangeCount);
+      
+      if (!selection || selection.rangeCount === 0) {
+        console.log('No selection found');
+        return;
+      }
+      
+      // Store the current range
+      const range = selection.getRangeAt(0);
+      console.log('range:', range);
+      console.log('selected text:', range.toString());
+      
+      // Execute the command
+      const result = document.execCommand(command, false, undefined);
+      console.log('execCommand result:', result);
+      
+      // Trigger input event to save changes
+      const event = new Event('input', { bubbles: true });
+      activeElement.dispatchEvent(event);
+      
+      // Save the new selection
+      if (selection.rangeCount > 0) {
+        this.savedSelection = selection.getRangeAt(0).cloneRange();
+        this.savedElement = activeElement as HTMLElement;
+      }
+      
+      // Keep focus
+      (activeElement as HTMLElement).focus();
+    } else {
+      console.log('Active element is not contenteditable');
+    }
+  }
+
+  increaseFontSize(): void {
+    console.log('increaseFontSize called');
+    
+    // Try to use saved selection first
+    if (this.savedSelection && this.savedElement) {
+      this.savedElement.focus();
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(this.savedSelection);
+      }
+    }
+    
+    const activeElement = document.activeElement;
+    console.log('activeElement:', activeElement);
+    
+    if (activeElement && activeElement.getAttribute('contenteditable') === 'true') {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        console.log('No selection');
+        return;
+      }
+      
+      const range = selection.getRangeAt(0);
+      console.log('range text:', range.toString());
+      
+      // Get current font size
+      let currentSize = 7; // default
+      if (range.startContainer.parentElement) {
+        const fontTag = range.startContainer.parentElement.closest('font');
+        if (fontTag) {
+          currentSize = parseInt(fontTag.getAttribute('size') || '7');
+        }
+      }
+      
+      // Increment size (max 18)
+      const newSize = Math.min(18, currentSize + 1);
+      document.execCommand('fontSize', false, newSize.toString());
+      
+      // Trigger input event
+      const event = new Event('input', { bubbles: true });
+      activeElement.dispatchEvent(event);
+      
+      // Save selection
+      if (selection.rangeCount > 0) {
+        this.savedSelection = selection.getRangeAt(0).cloneRange();
+        this.savedElement = activeElement as HTMLElement;
+      }
+      
+      (activeElement as HTMLElement).focus();
+    }
+  }
+
+  decreaseFontSize(): void {
+    console.log('decreaseFontSize called');
+    
+    // Try to use saved selection first
+    if (this.savedSelection && this.savedElement) {
+      this.savedElement.focus();
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(this.savedSelection);
+      }
+    }
+    
+    const activeElement = document.activeElement;
+    console.log('activeElement:', activeElement);
+    
+    if (activeElement && activeElement.getAttribute('contenteditable') === 'true') {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        console.log('No selection');
+        return;
+      }
+      
+      const range = selection.getRangeAt(0);
+      console.log('range text:', range.toString());
+      
+      // Get current font size
+      let currentSize = 7; // default
+      if (range.startContainer.parentElement) {
+        const fontTag = range.startContainer.parentElement.closest('font');
+        if (fontTag) {
+          currentSize = parseInt(fontTag.getAttribute('size') || '7');
+        }
+      }
+      
+      // Decrement size (min 4)
+      const newSize = Math.max(4, currentSize - 1);
+      document.execCommand('fontSize', false, newSize.toString());
+      
+      // Trigger input event
+      const event = new Event('input', { bubbles: true });
+      activeElement.dispatchEvent(event);
+      
+      // Save selection
+      if (selection.rangeCount > 0) {
+        this.savedSelection = selection.getRangeAt(0).cloneRange();
+        this.savedElement = activeElement as HTMLElement;
+      }
+      
+      (activeElement as HTMLElement).focus();
+    }
   }
 
   onNoteDragStart(): void {

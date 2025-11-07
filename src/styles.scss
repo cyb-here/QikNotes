@@ -1,1 +1,265 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* Import fonts from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@300;400;700&family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap');
+
+/* Font family classes */
+body.font-comic * {
+  font-family: 'Comic Neue', cursive, sans-serif;
+}
+
+body.font-sans * {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body.font-serif * {
+  font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+}
+
+/* Default to sans-serif */
+* {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Rich text formatting styles */
+[contenteditable] strong,
+[contenteditable] b {
+  font-weight: bold;
+}
+
+[contenteditable] em,
+[contenteditable] i {
+  font-style: italic;
+}
+
+[contenteditable] u {
+  text-decoration: underline;
+}
+
+[contenteditable] s,
+[contenteditable] strike {
+  text-decoration: line-through;
+}
+
+/* Font size support - size 4 (small) to size 18 (large) */
+[contenteditable] font[size="4"] { font-size: 12px !important; }
+[contenteditable] font[size="5"] { font-size: 13px !important; }
+[contenteditable] font[size="6"] { font-size: 14px !important; }
+[contenteditable] font[size="7"] { font-size: 16px !important; }
+[contenteditable] font[size="8"] { font-size: 18px !important; }
+[contenteditable] font[size="9"] { font-size: 20px !important; }
+[contenteditable] font[size="10"] { font-size: 22px !important; }
+[contenteditable] font[size="11"] { font-size: 24px !important; }
+[contenteditable] font[size="12"] { font-size: 26px !important; }
+[contenteditable] font[size="13"] { font-size: 28px !important; }
+[contenteditable] font[size="14"] { font-size: 30px !important; }
+[contenteditable] font[size="15"] { font-size: 32px !important; }
+[contenteditable] font[size="16"] { font-size: 34px !important; }
+[contenteditable] font[size="17"] { font-size: 36px !important; }
+[contenteditable] font[size="18"] { font-size: 38px !important; }
+
+/* Dark Mode Styles */
+body.dark-mode {
+  background-color: #0d1117;
+  color: #c9d1d9;
+}
+
+body.dark-mode .canvas-area {
+  background-color: #161b22 !important;
+}
+
+body.dark-mode .grid {
+  --grid-color: rgba(48, 54, 61, 0.5);
+}
+
+body.dark-mode .note {
+  background: #21262d !important;
+  border-color: #30363d !important;
+  color: #c9d1d9 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.dark-mode .note-content {
+  color: #c9d1d9 !important;
+}
+
+body.dark-mode .toolbar {
+  background: rgba(22, 27, 34, 0.95) !important;
+  border-bottom-color: #30363d !important;
+}
+
+body.dark-mode .toolbar-btn {
+  background: #21262d !important;
+  color: #c9d1d9 !important;
+  border-color: #30363d !important;
+}
+
+body.dark-mode .toolbar-btn:hover {
+  background: #30363d !important;
+  border-color: #484f58 !important;
+}
+
+body.dark-mode .toolbar-btn.primary {
+  background: #238636 !important;
+  color: #ffffff !important;
+  border-color: #238636 !important;
+}
+
+body.dark-mode .toolbar-btn.primary:hover {
+  background: #2ea043 !important;
+  border-color: #2ea043 !important;
+}
+
+body.dark-mode .toolbar-btn.danger {
+  background: #da3633 !important;
+  color: #ffffff !important;
+  border-color: #da3633 !important;
+}
+
+body.dark-mode .toolbar-btn.danger:hover {
+  background: #f85149 !important;
+  border-color: #f85149 !important;
+}
+
+body.dark-mode .notes-panel {
+  background: rgba(22, 27, 34, 0.95) !important;
+  border-right-color: #30363d !important;
+}
+
+body.dark-mode .panel-header {
+  background: #161b22 !important;
+  border-bottom-color: #30363d !important;
+  color: #c9d1d9 !important;
+}
+
+body.dark-mode .note-item {
+  background: #21262d !important;
+  border-color: #30363d !important;
+  color: #c9d1d9 !important;
+}
+
+body.dark-mode .note-item:hover {
+  background: #30363d !important;
+  border-color: #484f58 !important;
+}
+
+body.dark-mode .note-item.active {
+  background: #1f6feb !important;
+  border-color: #1f6feb !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .drag-handle {
+  background: #30363d !important;
+  color: #8b949e !important;
+}
+
+body.dark-mode .drag-handle:hover {
+  background: #484f58 !important;
+  color: #c9d1d9 !important;
+}
+
+body.dark-mode .delete-btn {
+  background: #da3633 !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .delete-btn:hover {
+  background: #f85149 !important;
+}
+
+body.dark-mode .toolbar-info {
+  color: #8b949e !important;
+}
+
+body.dark-mode .coordinates,
+body.dark-mode .notes-count {
+  color: #8b949e !important;
+}
+
+/* OLED / True Black Mode */
+body.oled-mode {
+  background-color: #000000;
+  color: #e6eef6;
+}
+
+body.oled-mode .canvas-area {
+  background-color: #000000 !important;
+}
+
+body.oled-mode .grid {
+  --grid-color: rgba(255, 255, 255, 0.12);
+}
+
+body.oled-mode .note {
+  background: #0a0a0a !important;
+  border: 1px solid #333 !important;
+  color: #e6eef6 !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 
+              0 4px 12px rgba(255, 255, 255, 0.05) !important;
+}
+
+body.oled-mode .note-content {
+  color: #e6eef6 !important;
+}
+
+body.oled-mode .toolbar {
+  background: rgba(10, 10, 10, 0.95) !important;
+  border: 1px solid #222 !important;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05) !important;
+}
+
+body.oled-mode .toolbar-btn {
+  background: #0a0a0a !important;
+  color: #e6eef6 !important;
+  border: 1px solid #333 !important;
+}
+
+body.oled-mode .toolbar-btn:hover {
+  background: #1a1a1a !important;
+  border-color: #444 !important;
+}
+
+body.oled-mode .toolbar-btn.primary {
+  background: #0b84ff !important;
+  color: #000 !important;
+  border-color: #0b84ff !important;
+}
+
+body.oled-mode .toolbar-btn.danger {
+  background: #ff4d4f !important;
+  color: #000 !important;
+  border-color: #ff4d4f !important;
+}
+
+body.oled-mode .notes-panel {
+  background: rgba(10, 10, 10, 0.95) !important;
+  border-right: 1px solid #222 !important;
+}
+
+body.oled-mode .note-item {
+  background: #0a0a0a !important;
+  border: 1px solid #333 !important;
+  color: #e6eef6 !important;
+}
+
+body.oled-mode .note-item:hover {
+  background: #1a1a1a !important;
+  border-color: #444 !important;
+}
+
+body.oled-mode .note-item.active {
+  background: #0b84ff !important;
+  border-color: #0b84ff !important;
+  color: #000 !important;
+}
+
+body.oled-mode .toolbar-info {
+  color: #cbd6e2 !important;
+}
+
+body.oled-mode .coordinates,
+body.oled-mode .notes-count {
+  color: #cbd6e2 !important;
+}
+

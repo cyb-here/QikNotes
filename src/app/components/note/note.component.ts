@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ElementRef, HostListener, ViewChild } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, HostListener, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Note, CanvasSettings, GridPosition } from '../../models';
@@ -27,16 +27,16 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
         <button class="delete-btn" (click)="onDelete($event)">×</button>
       </div>
       
-      <textarea 
-        #textarea
+      <div 
+        #contentEditable
         class="note-content"
-        [(ngModel)]="note.content"
+        contenteditable="true"
         (input)="onContentInput()"
         (blur)="onContentChange()"
         (mousedown)="onTextAreaMouseDown($event)"
         (click)="$event.stopPropagation()"
-        placeholder="Start typing...">
-      </textarea>
+        data-placeholder="Start typing...">
+      </div>
     </div>
   `,
   styles: [`
@@ -140,7 +140,15 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       cursor: text;
       background: transparent;
       user-select: text;
-      overflow: hidden;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .note-content[data-placeholder]:empty:before {
+      content: attr(data-placeholder);
+      color: #999;
+      cursor: text;
     }
 
     .note.dragging .note-content {
@@ -162,7 +170,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
     }
   `]
 })
-export class NoteComponent {
+export class NoteComponent implements AfterViewInit {
   @Input({ required: true }) note!: Note;
   @Input({ required: true }) settings!: CanvasSettings;
   @Input() zoom: number = 1; // Current zoom level from canvas
@@ -174,7 +182,7 @@ export class NoteComponent {
   @Output() dragEnded = new EventEmitter<void>();
   @Output() dragMove = new EventEmitter<{ gridX: number; gridY: number; width: number; height: number }>();
   
-  @ViewChild('textarea') textarea!: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('contentEditable') contentEditable!: ElementRef<HTMLDivElement>;
 
   isDragging = false;
   private dragStartX = 0;
@@ -183,6 +191,13 @@ export class NoteComponent {
   private hasDragged = false;
 
   constructor(private elementRef: ElementRef) {}
+
+  ngAfterViewInit(): void {
+    // Set initial content in the contenteditable div
+    if (this.contentEditable && this.note.content) {
+      this.contentEditable.nativeElement.innerHTML = this.note.content;
+    }
+  }
 
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(event: MouseEvent): void {
@@ -312,33 +327,31 @@ export class NoteComponent {
   }
 
   onContentInput(): void {
-    if (!this.textarea) return;
+    if (!this.contentEditable) return;
     
-    const textarea = this.textarea.nativeElement;
+    const contentDiv = this.contentEditable.nativeElement;
     const noteElement = this.elementRef.nativeElement.querySelector('.note') as HTMLElement;
     
     if (!noteElement) return;
+    
+    // Update note content from contenteditable
+    this.note.content = contentDiv.innerHTML;
     
     // Calculate required dimensions based on content
     const minWidth = 1; // Minimum 1 grid unit
     const minHeight = 1; // Minimum 1 grid unit
     
-    // Save original size
-    const originalHeight = textarea.style.height;
-    const originalWidth = textarea.style.width;
-    
-    // Calculate height (set height to auto to get true content height)
-    textarea.style.height = 'auto';
-    const requiredHeight = (textarea.scrollHeight + 50) / this.settings.cellHeight;
+    // Calculate height based on content
+    const requiredHeight = (contentDiv.scrollHeight + 50) / this.settings.cellHeight;
     const newHeight = Math.max(minHeight, Math.ceil(requiredHeight * 2) / 2); // Round to 0.5 units
-    textarea.style.height = originalHeight;
     
-    // Calculate width by checking the longest line
-    const lines = textarea.value.split('\n');
+    // Calculate width by checking content width
+    const textContent = contentDiv.textContent || '';
+    const lines = textContent.split('\n');
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     if (context) {
-      context.font = window.getComputedStyle(textarea).font;
+      context.font = window.getComputedStyle(contentDiv).font;
       
       let maxLineWidth = 0;
       for (const line of lines) {
@@ -360,7 +373,10 @@ export class NoteComponent {
   }
 
   onContentChange(): void {
-    this.contentChanged.emit(this.note.content);
+    if (this.contentEditable) {
+      const content = this.contentEditable.nativeElement.innerHTML;
+      this.contentChanged.emit(content);
+    }
   }
 
   onDelete(event: MouseEvent): void {

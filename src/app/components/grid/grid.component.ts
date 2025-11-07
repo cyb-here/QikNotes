@@ -23,6 +23,7 @@ import { CanvasSettings } from '../../models';
       bottom: 0;
       pointer-events: none;
       background-position: center;
+      --grid-color: #e0e0e0;
     }
   `]
 })
@@ -35,8 +36,8 @@ export class GridComponent {
 
   getGridImage(): string {
     return `
-      linear-gradient(to right, #e0e0e0 1px, transparent 1px),
-      linear-gradient(to bottom, #e0e0e0 1px, transparent 1px)
+      linear-gradient(to right, var(--grid-color, #e0e0e0) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-color, #e0e0e0) 1px, transparent 1px)
     `;
   }
 }
