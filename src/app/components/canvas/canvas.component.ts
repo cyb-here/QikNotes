@@ -86,6 +86,7 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
               *ngFor="let note of notes"
               [note]="note"
               [settings]="canvasState.settings"
+              [zoom]="canvasState.viewport.zoom"
               [class.no-transition]="isNavigating && note.id === activeNoteId"
               (contentChanged)="updateNoteContent(note.id, $event)"
               (positionChanged)="updateNotePosition(note.id, $event)"
@@ -555,8 +556,8 @@ export class CanvasComponent implements OnInit, OnDestroy {
     }
 
     if (isPinch) {
-      // Use an exponential mapping for smooth zooming
-      const factor = Math.exp(-dy * 0.002);
+      // Use an exponential mapping for smooth zooming (increased from 0.002 to 0.005 for faster zoom)
+      const factor = Math.exp(-dy * 0.005);
       this.canvasService.zoomBy(factor).catch(err => console.error('Zoom failed', err));
     } else {
       // Treat as pan (two-finger scroll). Invert deltas so the content moves

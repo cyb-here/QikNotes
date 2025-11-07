@@ -165,6 +165,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
 export class NoteComponent {
   @Input({ required: true }) note!: Note;
   @Input({ required: true }) settings!: CanvasSettings;
+  @Input() zoom: number = 1; // Current zoom level from canvas
   @Output() contentChanged = new EventEmitter<string>();
   @Output() delete = new EventEmitter<void>();
   @Output() positionChanged = new EventEmitter<GridPosition>();
@@ -195,9 +196,9 @@ export class NoteComponent {
       this.hasDragged = true;
       event.preventDefault();
       
-      // Calculate pixel delta (smooth movement)
-      const pixelDeltaX = event.clientX - this.dragStartX;
-      const pixelDeltaY = event.clientY - this.dragStartY;
+      // Calculate pixel delta (smooth movement) - scale by zoom
+      const pixelDeltaX = (event.clientX - this.dragStartX) / this.zoom;
+      const pixelDeltaY = (event.clientY - this.dragStartY) / this.zoom;
       
       // Calculate grid position for overlap detection (rounded)
       const gridDeltaX = Math.round(pixelDeltaX / this.settings.cellWidth);
