@@ -140,6 +140,10 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       cursor: text;
       background: transparent;
       user-select: text;
+      white-space: pre;
+      overflow-wrap: normal;
+      word-wrap: normal;
+      overflow: hidden;
     }
 
     .note.dragging .note-content {
@@ -318,8 +322,8 @@ export class NoteComponent {
     if (!noteElement) return;
     
     // Check if content is overflowing
-    const isOverflowingHeight = textarea.scrollHeight > textarea.clientHeight;
-    const isOverflowingWidth = textarea.scrollWidth > textarea.clientWidth;
+    const isOverflowingHeight = textarea.scrollHeight > textarea.clientHeight + 2; // Add small buffer
+    const isOverflowingWidth = textarea.scrollWidth > textarea.clientWidth + 2; // Add small buffer
     
     let newWidth = this.note.size.width;
     let newHeight = this.note.size.height;
@@ -327,13 +331,17 @@ export class NoteComponent {
     
     // Expand vertically if content overflows
     if (isOverflowingHeight) {
-      newHeight = Math.ceil(textarea.scrollHeight / this.settings.cellHeight) + 0.5;
+      // Calculate required height in grid units, add padding for note header/padding
+      const requiredHeight = (textarea.scrollHeight + 50) / this.settings.cellHeight;
+      newHeight = Math.max(this.note.size.height, Math.ceil(requiredHeight * 2) / 2); // Round to 0.5 units
       hasChanged = true;
     }
     
     // Expand horizontally if content overflows (for long lines without breaks)
     if (isOverflowingWidth) {
-      newWidth = Math.ceil(textarea.scrollWidth / this.settings.cellWidth) + 0.5;
+      // Calculate required width in grid units, add padding for note borders/padding
+      const requiredWidth = (textarea.scrollWidth + 30) / this.settings.cellWidth;
+      newWidth = Math.max(this.note.size.width, Math.ceil(requiredWidth * 2) / 2); // Round to 0.5 units
       hasChanged = true;
     }
     

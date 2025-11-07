@@ -320,6 +320,51 @@ export class CanvasComponent implements OnInit, OnDestroy {
     // This method exists to maintain clean architecture
   }
 
+  private fixInvalidNotePositions(): void {
+    // Fix any notes with NaN or invalid coordinates
+    let recoveryIndex = 0; // Track how many notes we've recovered
+    
+    // Find the leftmost note position
+    let leftmostX = 0;
+    for (const note of this.notes) {
+      if (isFinite(note.position.gridX) && note.position.gridX < leftmostX) {
+        leftmostX = note.position.gridX;
+      }
+    }
+    
+    // Place recovered notes 4 blocks to the left of the leftmost note
+    const recoveryZoneX = leftmostX - 4;
+    
+    for (const note of this.notes) {
+      let needsUpdate = false;
+      let newPosition = { ...note.position };
+      
+      if (!isFinite(note.position.gridX) || !isFinite(note.position.gridY)) {
+        console.warn('Fixing invalid position for note:', note.id, 'Current position:', note.position);
+        
+        // Arrange recovered notes vertically in the recovery zone
+        newPosition = {
+          gridX: recoveryZoneX,
+          gridY: recoveryIndex * 2  // 2 grid units apart vertically
+        };
+        
+        needsUpdate = true;
+        recoveryIndex++;
+      }
+      
+      if (needsUpdate) {
+        console.log('Moving note to recovery position:', newPosition);
+        this.notesService.updateNotePosition(note.id, newPosition).catch((error: unknown) => {
+          console.error('Error fixing note position:', error);
+        });
+      }
+    }
+    
+    if (recoveryIndex > 0) {
+      console.log(`Recovered ${recoveryIndex} note(s) with invalid positions to recovery zone at x=${recoveryZoneX}`);
+    }
+  }
+
   async resetView(): Promise<void> {
     // Reset canvas position
     this.canvasOffset = { x: 0, y: 0 };
@@ -443,6 +488,8 @@ export class CanvasComponent implements OnInit, OnDestroy {
     // Load notes
     this.notesService.getNotes().subscribe(notes => {
       this.notes = notes;
+      // Clean up any notes with invalid coordinates
+      this.fixInvalidNotePositions();
     });
 
     // Load canvas state
@@ -607,9 +654,118 @@ export class CanvasComponent implements OnInit, OnDestroy {
   }
 
   updateNotePosition(noteId: string, newPosition: GridPosition): void {
+    // Find the note being moved
+    const movedNote = this.notes.find(n => n.id === noteId);
+    if (!movedNote) {
+      this.notesService.updateNotePosition(noteId, newPosition).catch(error => {
+        console.error('Error updating note position:', error);
+      });
+      return;
+    }
+
+    // Check for overlaps and push other notes away
+    this.resolveOverlapsForMovedNote(movedNote, newPosition);
+
+    // Update the note position
     this.notesService.updateNotePosition(noteId, newPosition).catch(error => {
       console.error('Error updating note position:', error);
     });
+  }
+
+  private resolveOverlapsForMovedNote(movedNote: Note, newPosition: GridPosition): void {
+    // Validate input position
+    if (!isFinite(newPosition.gridX) || !isFinite(newPosition.gridY)) {
+      console.error('Invalid position for moved note:', newPosition);
+      return;
+    }
+    
+    const movedNoteRight = newPosition.gridX + movedNote.size.width;
+    const movedNoteBottom = newPosition.gridY + movedNote.size.height;
+    
+    const processedNotes = new Set<string>();
+    
+    // Iteratively resolve overlaps (cascade push)
+    let hasOverlaps = true;
+    let iterations = 0;
+    const maxIterations = 10; // Prevent infinite loops
+    
+    while (hasOverlaps && iterations < maxIterations) {
+      hasOverlaps = false;
+      iterations++;
+      
+      for (const otherNote of this.notes) {
+        if (otherNote.id === movedNote.id) continue;
+        
+        // Validate other note's position
+        if (!isFinite(otherNote.position.gridX) || !isFinite(otherNote.position.gridY)) {
+          console.error('Skipping note with invalid position:', otherNote.id);
+          continue;
+        }
+        
+        const otherLeft = otherNote.position.gridX;
+        const otherRight = otherNote.position.gridX + otherNote.size.width;
+        const otherTop = otherNote.position.gridY;
+        const otherBottom = otherNote.position.gridY + otherNote.size.height;
+        
+        // Check if notes overlap
+        const overlapsX = !(movedNoteRight <= otherLeft || newPosition.gridX >= otherRight);
+        const overlapsY = !(movedNoteBottom <= otherTop || newPosition.gridY >= otherBottom);
+        
+        if (overlapsX && overlapsY) {
+          hasOverlaps = true;
+          
+          // Calculate overlap amounts in each direction
+          const overlapLeft = movedNoteRight - otherLeft;
+          const overlapRight = otherRight - newPosition.gridX;
+          const overlapTop = movedNoteBottom - otherTop;
+          const overlapBottom = otherBottom - newPosition.gridY;
+          
+          // Find minimum overlap direction
+          const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+          
+          let newOtherPosition: GridPosition;
+          
+          // Push in the direction with least overlap (no gap)
+          if (minOverlap === overlapLeft) {
+            // Push right
+            newOtherPosition = {
+              gridX: movedNoteRight,
+              gridY: otherNote.position.gridY
+            };
+          } else if (minOverlap === overlapRight) {
+            // Push left
+            newOtherPosition = {
+              gridX: newPosition.gridX - otherNote.size.width,
+              gridY: otherNote.position.gridY
+            };
+          } else if (minOverlap === overlapTop) {
+            // Push down
+            newOtherPosition = {
+              gridX: otherNote.position.gridX,
+              gridY: movedNoteBottom
+            };
+          } else {
+            // Push up
+            newOtherPosition = {
+              gridX: otherNote.position.gridX,
+              gridY: newPosition.gridY - otherNote.size.height
+            };
+          }
+          
+          // Validate calculated position before updating
+          if (isFinite(newOtherPosition.gridX) && isFinite(newOtherPosition.gridY)) {
+            // Update the other note's position
+            this.notesService.updateNotePosition(otherNote.id, newOtherPosition).catch((error: unknown) => {
+              console.error('Error pushing note:', error);
+            });
+            
+            processedNotes.add(otherNote.id);
+          } else {
+            console.error('Calculated invalid position for note:', otherNote.id, newOtherPosition);
+          }
+        }
+      }
+    }
   }
 
   updateNoteSize(noteId: string, newSize: { width: number; height: number }): void {
@@ -630,6 +786,8 @@ export class CanvasComponent implements OnInit, OnDestroy {
     const oldSize = resizingNote.size;
     
     // Calculate the bounds of the resizing note
+    const oldRight = resizingNote.position.gridX + oldSize.width;
+    const oldBottom = resizingNote.position.gridY + oldSize.height;
     const newRight = resizingNote.position.gridX + newSize.width;
     const newBottom = resizingNote.position.gridY + newSize.height;
 
@@ -638,77 +796,87 @@ export class CanvasComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Find notes that would be overlapped and shrink them
-    for (const otherNote of this.notes) {
-      if (otherNote.id === resizingNote.id) continue;
+    // Calculate expansion amounts
+    const expandedRight = newSize.width > oldSize.width;
+    const expandedDown = newSize.height > oldSize.height;
 
-      const otherLeft = otherNote.position.gridX;
-      const otherRight = otherNote.position.gridX + otherNote.size.width;
-      const otherTop = otherNote.position.gridY;
-      const otherBottom = otherNote.position.gridY + otherNote.size.height;
+    // Find notes that would be overlapped and push them away
+    const processedNotes = new Set<string>();
+    let hasOverlaps = true;
+    let iterations = 0;
+    const maxIterations = 10;
+    
+    while (hasOverlaps && iterations < maxIterations) {
+      hasOverlaps = false;
+      iterations++;
+      
+      for (const otherNote of this.notes) {
+        if (otherNote.id === resizingNote.id || processedNotes.has(otherNote.id)) continue;
 
-      // Check for overlap
-      const overlapsX = otherLeft < newRight && otherRight > resizingNote.position.gridX;
-      const overlapsY = otherTop < newBottom && otherBottom > resizingNote.position.gridY;
+        // Validate other note's position
+        if (!isFinite(otherNote.position.gridX) || !isFinite(otherNote.position.gridY)) {
+          continue;
+        }
 
-      if (overlapsX && overlapsY) {
-        // Calculate how much to shrink the other note
-        let newWidth = otherNote.size.width;
-        let newHeight = otherNote.size.height;
+        const otherLeft = otherNote.position.gridX;
+        const otherRight = otherNote.position.gridX + otherNote.size.width;
+        const otherTop = otherNote.position.gridY;
+        const otherBottom = otherNote.position.gridY + otherNote.size.height;
 
-        // Shrink horizontally if needed
-        if (otherLeft >= resizingNote.position.gridX && otherLeft < newRight) {
-          // Other note starts within the expanding note's new width
-          const availableWidth = otherRight - newRight;
-          if (availableWidth > 0.5) {
-            // Move the note to start after the expanding note
-            const newPosition: GridPosition = {
+        // Check for overlap with the NEW size
+        const overlapsX = otherLeft < newRight && otherRight > resizingNote.position.gridX;
+        const overlapsY = otherTop < newBottom && otherBottom > resizingNote.position.gridY;
+
+        if (overlapsX && overlapsY) {
+          hasOverlaps = true;
+          
+          // Determine push direction based on which side is expanding
+          let newOtherPosition: GridPosition | null = null;
+          
+          if (expandedRight && expandedDown) {
+            // Expanding both directions - push based on proximity
+            const distanceRight = otherLeft - oldRight;
+            const distanceDown = otherTop - oldBottom;
+            
+            if (distanceRight >= 0 && distanceRight <= distanceDown) {
+              // Push right
+              newOtherPosition = {
+                gridX: newRight,
+                gridY: otherNote.position.gridY
+              };
+            } else if (distanceDown >= 0) {
+              // Push down
+              newOtherPosition = {
+                gridX: otherNote.position.gridX,
+                gridY: newBottom
+              };
+            } else {
+              // Overlap exists but note was already there - push right by default
+              newOtherPosition = {
+                gridX: newRight,
+                gridY: otherNote.position.gridY
+              };
+            }
+          } else if (expandedRight) {
+            // Only expanding right - push right
+            newOtherPosition = {
               gridX: newRight,
               gridY: otherNote.position.gridY
             };
-            newWidth = availableWidth;
-            this.notesService.updateNotePosition(otherNote.id, newPosition).catch((error: unknown) => {
-              console.error('Error repositioning note:', error);
-            });
-          } else {
-            // Not enough space, shrink to minimum
-            newWidth = 0.5;
-          }
-        } else if (otherRight > resizingNote.position.gridX && otherRight <= newRight) {
-          // Other note ends within the expanding note's new width
-          const availableWidth = resizingNote.position.gridX - otherLeft;
-          newWidth = Math.max(0.5, availableWidth);
-        }
-
-        // Shrink vertically if needed
-        if (otherTop >= resizingNote.position.gridY && otherTop < newBottom) {
-          // Other note starts within the expanding note's new height
-          const availableHeight = otherBottom - newBottom;
-          if (availableHeight > 0.5) {
-            // Move the note to start after the expanding note
-            const newPosition: GridPosition = {
+          } else if (expandedDown) {
+            // Only expanding down - push down
+            newOtherPosition = {
               gridX: otherNote.position.gridX,
               gridY: newBottom
             };
-            newHeight = availableHeight;
-            this.notesService.updateNotePosition(otherNote.id, newPosition).catch((error: unknown) => {
-              console.error('Error repositioning note:', error);
-            });
-          } else {
-            // Not enough space, shrink to minimum
-            newHeight = 0.5;
           }
-        } else if (otherBottom > resizingNote.position.gridY && otherBottom <= newBottom) {
-          // Other note ends within the expanding note's new height
-          const availableHeight = resizingNote.position.gridY - otherTop;
-          newHeight = Math.max(0.5, availableHeight);
-        }
-
-        // Apply the new size if it changed
-        if (newWidth !== otherNote.size.width || newHeight !== otherNote.size.height) {
-          this.notesService.updateNoteSize(otherNote.id, { width: newWidth, height: newHeight }).catch((error: unknown) => {
-            console.error('Error resizing note:', error);
-          });
+          
+          if (newOtherPosition && isFinite(newOtherPosition.gridX) && isFinite(newOtherPosition.gridY)) {
+            this.notesService.updateNotePosition(otherNote.id, newOtherPosition).catch((error: unknown) => {
+              console.error('Error pushing note during resize:', error);
+            });
+            processedNotes.add(otherNote.id);
+          }
         }
       }
     }
