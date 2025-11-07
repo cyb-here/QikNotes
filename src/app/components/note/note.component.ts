@@ -50,7 +50,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       padding: 8px;
       overflow: hidden;
-      transition: box-shadow 0.2s;
+      transition: box-shadow 0.2s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
       left: 0;
       top: 0;
       user-select: none;
@@ -68,7 +68,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       box-shadow: 0 5px 20px rgba(0,0,0,0.3);
       z-index: 1000;
       cursor: grabbing;
-      transition: none;
+      transition: box-shadow 0.2s;
     }
 
     .note.focused {
@@ -188,6 +188,7 @@ export class NoteComponent implements AfterViewInit {
   @Output() sizeChanged = new EventEmitter<{ width: number; height: number }>();
   @Output() dragStarted = new EventEmitter<void>();
   @Output() dragEnded = new EventEmitter<void>();
+  @Output() dragCancelled = new EventEmitter<void>();
   @Output() dragMove = new EventEmitter<{ gridX: number; gridY: number; width: number; height: number }>();
   
   @ViewChild('contentEditable') contentEditable!: ElementRef<HTMLDivElement>;
@@ -291,6 +292,27 @@ export class NoteComponent implements AfterViewInit {
     // Emit drag ended
     this.dragEnded.emit();
     this.hasDragged = false;
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    // Cancel drag if Escape is pressed while dragging
+    if (event.key === 'Escape' && this.isDragging) {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      this.isDragging = false;
+      this.hasDragged = false;
+      
+      // Reset visual position to original
+      const noteElement = this.elementRef.nativeElement.querySelector('.note') as HTMLElement;
+      if (noteElement) {
+        noteElement.style.transform = '';
+      }
+      
+      // Emit drag cancelled
+      this.dragCancelled.emit();
+    }
   }
 
   onDragStart(event: MouseEvent): void {

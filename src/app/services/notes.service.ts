@@ -24,7 +24,7 @@ export class NotesService {
       id: this.generateId(),
       position,
       content,
-      size: { width: 2, height: 2 },
+      size: { width: 1, height: 1 },
       createdAt: new Date(),
       updatedAt: new Date(),
     };

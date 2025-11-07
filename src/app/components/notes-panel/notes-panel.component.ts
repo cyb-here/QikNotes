@@ -64,7 +64,7 @@ import { Note } from '../../models';
     }
 
     .search-box input {
-      width: 100%;
+      width: 90%;
       padding: 8px 12px;
       border: 1px solid #ddd;
       border-radius: 4px;
