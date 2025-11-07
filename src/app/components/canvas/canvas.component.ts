@@ -114,14 +114,31 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
       width: 10000px;
       height: 10000px;
       position: absolute;
-      top: 50%;
-      left: 50%;
+      top: 0;
+      left: 0;
       transform-origin: center center;
       cursor: grab;
-      transform: translate(-50%, -50%) 
-                translate(var(--offset-x, 0px), var(--offset-y, 0px))
-                scale(var(--zoom-level, 1));
-      transition: transform 0.1s ease;
+      transform: 
+        /* Apply navigation offset */
+        translate(var(--offset-x, 0px), var(--offset-y, 0px))
+        /* Apply zoom */
+        scale(var(--zoom-level, 1));
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Debug center cross */
+    .canvas-area::after {
+      content: '';
+      position: absolute;
+      left: 5000px;
+      top: 5000px;
+      width: 20px;
+      height: 20px;
+      background: 
+        linear-gradient(to right, transparent calc(50% - 1px), red calc(50% - 1px), red calc(50% + 1px), transparent calc(50% + 1px)),
+        linear-gradient(to bottom, transparent calc(50% - 1px), red calc(50% - 1px), red calc(50% + 1px), transparent calc(50% + 1px));
+      transform: translate(-50%, -50%);
+      pointer-events: none;
     }
 
     .canvas-wrapper {
@@ -619,22 +636,46 @@ export class CanvasComponent implements OnInit, OnDestroy {
     }, 50);
   }
 
+  private highlightNote(noteId: string): void {
+    requestAnimationFrame(() => {
+      const noteElement = document.querySelector(`[data-note-id="${noteId}"]`);
+      if (noteElement instanceof HTMLElement) {
+        noteElement.classList.add('highlight');
+        setTimeout(() => noteElement.classList.remove('highlight'), 2000);
+      }
+    });
+  }
   navigateToNote(note: Note): void {
-    this.activeNoteId = note.id;
-    
-    // Calculate the target position
-    const targetX = 5000 + (note.position.gridX * this.canvasState.settings.cellWidth);
-    const targetY = 5000 + (note.position.gridY * this.canvasState.settings.cellHeight);
-    
-    // Center the note by setting the canvas offset
-    this.canvasOffset.x = -targetX + window.innerWidth / 2;
-    this.canvasOffset.y = -targetY + window.innerHeight / 2;
-    
-    // Highlight effect
-    const noteElement = document.querySelector(`[data-note-id="${note.id}"]`) as HTMLElement;
-    if (noteElement) {
-      noteElement.classList.add('highlight');
-      setTimeout(() => noteElement.classList.remove('highlight'), 2000);
+    if (!note?.id || !note?.position) {
+      console.error('Invalid note data:', note);
+      return;
     }
+
+    this.activeNoteId = note.id;
+
+    // Ensure container exists
+    const container = document.querySelector('.canvas-container');
+    if (!(container instanceof HTMLElement)) {
+      console.error('Canvas container not found');
+      return;
+    }
+
+    // Read grid cell size (pixels per grid unit)
+    const cellWidth = this.canvasState?.settings?.cellWidth || 200;
+    const cellHeight = this.canvasState?.settings?.cellHeight || 150;
+
+    // Simple, robust formula:
+    // The notes grid is centered at canvas-space (5000,5000). A note's
+    // canvas X = 5000 + gridX * cellWidth. To center that note in the
+    // viewport we must move the canvas by (5000 - canvasX) pixels. Because
+    // the CSS transform is translate(...) then scale(...), the translation
+    // value should be the raw pixel offset (not divided by zoom).
+  this.canvasOffset.x = -note.position.gridX * cellWidth;
+  this.canvasOffset.y = -note.position.gridY * cellHeight;
+
+  console.log('navigateToNote:', { grid: note.position, offset: this.canvasOffset });
+
+  // Trigger highlight after DOM update to avoid flicker
+  requestAnimationFrame(() => this.highlightNote(note.id));
   }
 }
