@@ -1061,14 +1061,75 @@ export class CanvasComponent implements OnInit, OnDestroy {
 
   private findNextAvailablePosition(
     note: Note, 
-    blockingNoteBounds: { left: number; right: number; top: number; bottom: number; width: number; height: number }
+    blockingNoteBounds: { left: number; right: number; top: number; bottom: number; width: number; height: number },
+    preferredDirection?: { horizontal: 'left' | 'right' | 'none'; vertical: 'up' | 'down' | 'none' }
   ): GridPosition | null {
     // Start searching from the note's current position
     const startX = note.position.gridX;
     const startY = note.position.gridY;
     
-    // Try positions in a spiral pattern outward from the current position
-    const maxSearchRadius = 20; // Maximum cells to search in each direction
+    // If we have a preferred direction, try searching in that direction first
+    if (preferredDirection) {
+      const maxDirectionalSearch = 15;
+      
+      // Determine search increments based on preferred direction
+      const xIncrement = preferredDirection.horizontal === 'right' ? 1 : 
+                        preferredDirection.horizontal === 'left' ? -1 : 0;
+      const yIncrement = preferredDirection.vertical === 'down' ? 1 : 
+                        preferredDirection.vertical === 'up' ? -1 : 0;
+      
+      // Try moving in the preferred direction
+      for (let step = 1; step <= maxDirectionalSearch; step++) {
+        const testX = startX + (xIncrement * step);
+        const testY = startY + (yIncrement * step);
+        
+        if (this.isPositionAvailable(testX, testY, note.size.width, note.size.height, note.id, blockingNoteBounds)) {
+          return { gridX: testX, gridY: testY };
+        }
+      }
+      
+      // Try perpendicular directions if primary direction fails
+      if (xIncrement !== 0) {
+        // Was moving horizontally, try vertically
+        for (let step = 1; step <= maxDirectionalSearch; step++) {
+          // Try down
+          const testXDown = startX + xIncrement;
+          const testYDown = startY + step;
+          if (this.isPositionAvailable(testXDown, testYDown, note.size.width, note.size.height, note.id, blockingNoteBounds)) {
+            return { gridX: testXDown, gridY: testYDown };
+          }
+          
+          // Try up
+          const testXUp = startX + xIncrement;
+          const testYUp = startY - step;
+          if (this.isPositionAvailable(testXUp, testYUp, note.size.width, note.size.height, note.id, blockingNoteBounds)) {
+            return { gridX: testXUp, gridY: testYUp };
+          }
+        }
+      }
+      
+      if (yIncrement !== 0) {
+        // Was moving vertically, try horizontally
+        for (let step = 1; step <= maxDirectionalSearch; step++) {
+          // Try right
+          const testXRight = startX + step;
+          const testYRight = startY + yIncrement;
+          if (this.isPositionAvailable(testXRight, testYRight, note.size.width, note.size.height, note.id, blockingNoteBounds)) {
+            return { gridX: testXRight, gridY: testYRight };
+          }
+          
+          // Try left
+          const testXLeft = startX - step;
+          const testYLeft = startY + yIncrement;
+          if (this.isPositionAvailable(testXLeft, testYLeft, note.size.width, note.size.height, note.id, blockingNoteBounds)) {
+            return { gridX: testXLeft, gridY: testYLeft };
+          }
+        }
+      }
+    }
+    
+    // Fall back to spiral pattern if directional search fails
+    const maxSearchRadius = 20;
     
     for (let radius = 0; radius <= maxSearchRadius; radius++) {
       // Check positions in a square ring at this radius
@@ -1187,8 +1248,27 @@ export class CanvasComponent implements OnInit, OnDestroy {
       const overlapsY = otherTop < newBottom && otherBottom > resizingNote.position.gridY;
 
       if (overlapsX && overlapsY) {
-        // Find next available position for the overlapping note
-        const newOtherPosition = this.findNextAvailablePosition(otherNote, resizingNoteBounds);
+        // Calculate the direction the overlapping note is relative to the resizing note
+        const noteCenterX = otherNote.position.gridX + otherNote.size.width / 2;
+        const noteCenterY = otherNote.position.gridY + otherNote.size.height / 2;
+        const resizingCenterX = resizingNote.position.gridX + newSize.width / 2;
+        const resizingCenterY = resizingNote.position.gridY + newSize.height / 2;
+        
+        const deltaX = noteCenterX - resizingCenterX;
+        const deltaY = noteCenterY - resizingCenterY;
+        
+        // Determine primary direction based on which delta is larger
+        const preferredDirection = {
+          horizontal: Math.abs(deltaX) > Math.abs(deltaY) 
+            ? (deltaX > 0 ? 'right' as const : 'left' as const)
+            : 'none' as const,
+          vertical: Math.abs(deltaY) > Math.abs(deltaX)
+            ? (deltaY > 0 ? 'down' as const : 'up' as const)
+            : 'none' as const
+        };
+        
+        // Find next available position for the overlapping note in the preferred direction
+        const newOtherPosition = this.findNextAvailablePosition(otherNote, resizingNoteBounds, preferredDirection);
         
         if (newOtherPosition) {
           this.notesService.updateNotePosition(otherNote.id, newOtherPosition).catch((error: unknown) => {

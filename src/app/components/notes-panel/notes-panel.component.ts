@@ -10,7 +10,7 @@ import { Note } from '../../models';
   template: `
     <div class="notes-panel">
       <div class="panel-header">
-        <h2>Notes ({{ notes.length }})</h2>
+        <h2>Qik-Notes ({{ notes.length }})</h2>
         <div class="search-box">
           <input 
             type="text" 
