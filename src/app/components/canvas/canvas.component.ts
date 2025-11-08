@@ -140,7 +140,7 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
             
             <!-- Notes -->
             <app-note 
-              *ngFor="let note of notes"
+              *ngFor="let note of notes; trackBy: trackByNoteId"
               [note]="note"
               [settings]="canvasState.settings"
               [zoom]="canvasState.viewport.zoom"
@@ -687,17 +687,18 @@ export class CanvasComponent implements OnInit, OnDestroy {
     
     // Load notes
     this.notesService.getNotes().subscribe(notes => {
-      console.log('Notes subscription fired, loaded', notes.length, 'notes');
+      console.log('=== Notes subscription fired ===, loaded', notes.length, 'notes');
       
       // Log each note's position for debugging
       notes.forEach(note => {
-        console.log('  Note', note.id, 'at position', note.position);
+        console.log('  Note', note.id.substring(0, 8), 'at position', note.position, 'object ref:', note);
       });
       
       this.notes = notes;
       
       // Clean up any notes with invalid coordinates
       this.fixInvalidNotePositions();
+      console.log('=== Notes subscription END ===');
     });
 
     // Load canvas state
@@ -862,14 +863,21 @@ export class CanvasComponent implements OnInit, OnDestroy {
   }
 
   updateNotePosition(noteId: string, newPosition: GridPosition): void {
+    console.log('=== updateNotePosition called ===');
+    console.log('  noteId:', noteId);
+    console.log('  newPosition:', newPosition);
+    
     // Find the note being moved
     const movedNote = this.notes.find(n => n.id === noteId);
     if (!movedNote) {
+      console.log('  Note not found in array, updating service directly');
       this.notesService.updateNotePosition(noteId, newPosition).catch(error => {
         console.error('Error updating note position:', error);
       });
       return;
     }
+
+    console.log('  movedNote.position BEFORE:', movedNote.position);
 
     // Normalize positions to handle -0 vs 0
     const normalizedNewX = newPosition.gridX === 0 ? 0 : newPosition.gridX;
@@ -877,16 +885,16 @@ export class CanvasComponent implements OnInit, OnDestroy {
     const normalizedOldX = movedNote.position.gridX === 0 ? 0 : movedNote.position.gridX;
     const normalizedOldY = movedNote.position.gridY === 0 ? 0 : movedNote.position.gridY;
     
+    console.log('  normalizedOld:', { gridX: normalizedOldX, gridY: normalizedOldY });
+    console.log('  normalizedNew:', { gridX: normalizedNewX, gridY: normalizedNewY });
+    
     const finalPosition = { gridX: normalizedNewX, gridY: normalizedNewY };
     
     // Check if position actually changed
     if (normalizedOldX === normalizedNewX && normalizedOldY === normalizedNewY) {
-      console.log('=== POSITION UNCHANGED - NO COLLISION CHECK ===');
-      // Still update the service to ensure consistency
-      this.notesService.updateNotePosition(noteId, finalPosition).catch(error => {
-        console.error('Error updating note position:', error);
-      });
-      // Return early - no collision detection needed if note hasn't moved
+      console.log('=== POSITION UNCHANGED - NO COLLISION CHECK, NO UPDATE ===');
+      // Don't update the service - position hasn't changed
+      // Updating would create a new note object, trigger subscription, and cause stale references
       return;
     }
     
@@ -918,8 +926,10 @@ export class CanvasComponent implements OnInit, OnDestroy {
       const overlapsY = !(movedNoteBottom <= otherTop || normalizedNewY >= otherBottom);
       
       if (overlapsX && overlapsY) {
+        console.log('  Found overlapping note:', otherNote.id, 'at', otherNote.position);
         // Find next available position for the overlapping note
         const newOtherPosition = this.findNextAvailablePosition(otherNote, movedNoteBounds);
+        console.log('  Moving overlapping note to:', newOtherPosition);
         
         if (newOtherPosition) {
           this.notesService.updateNotePosition(otherNote.id, newOtherPosition).catch((error: unknown) => {
@@ -930,9 +940,11 @@ export class CanvasComponent implements OnInit, OnDestroy {
     }
     
     // Save the moved note's position with normalized values
+    console.log('  Saving final position:', finalPosition);
     this.notesService.updateNotePosition(noteId, finalPosition).catch(error => {
       console.error('Error updating note position:', error);
     });
+    console.log('=== updateNotePosition END ===');
   }
 
   private previewNotePosition(movedNote: Note, newPosition: GridPosition): void {
@@ -1763,5 +1775,9 @@ export class CanvasComponent implements OnInit, OnDestroy {
         }, 50);
       }, 100);
     }, 0);
+  }
+
+  trackByNoteId(index: number, note: Note): string {
+    return note.id;
   }
 }
