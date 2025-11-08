@@ -15,98 +15,61 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
   imports: [CommonModule, FormsModule, GridComponent, NoteComponent, AddButtonComponent, NotesPanelComponent],
   template: `
     <div class="canvas-container" [class.dragging]="isDraggingNote">
-      <!-- Notes Panel -->
-      <app-notes-panel
-        [notes]="notes"
-        [activeNoteId]="activeNoteId"
-        (navigateToNote)="navigateToNote($event)">
-      </app-notes-panel>
+      <!-- Mobile Menu Button -->
+      <button class="mobile-menu-btn" (click)="toggleMobilePanel()" [class.active]="isMobilePanelOpen">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <!-- Notes Panel Wrapper -->
+      <div class="notes-panel-wrapper" [class.mobile-open]="isMobilePanelOpen">
+        <app-notes-panel
+          [notes]="notes"
+          [activeNoteId]="activeNoteId"
+          (navigateToNote)="navigateToNote($event); closeMobilePanel()">
+        </app-notes-panel>
+      </div>
+
+      <!-- Mobile Overlay -->
+      <div class="mobile-overlay" 
+           [class.active]="isMobilePanelOpen" 
+           (click)="closeMobilePanel()"></div>
 
       <!-- Toolbar -->
       <div class="toolbar">
-        <div class="toolbar-group">
-          <button (click)="addNoteAtCenter()" class="toolbar-btn primary">+ Add Note</button>
-        </div>
-        <div class="toolbar-group formatting-group">
-          <button (mousedown)="$event.preventDefault()" (click)="formatText('bold')" class="toolbar-btn format-btn" title="Bold (Ctrl+B)">
-            <strong>B</strong>
-          </button>
-          <button (mousedown)="$event.preventDefault()" (click)="formatText('italic')" class="toolbar-btn format-btn" title="Italic (Ctrl+I)">
-            <em>I</em>
-          </button>
-          <button (mousedown)="$event.preventDefault()" (click)="formatText('underline')" class="toolbar-btn format-btn" title="Underline (Ctrl+U)">
-            <u>U</u>
-          </button>
-          <button (mousedown)="$event.preventDefault()" (click)="formatText('strikeThrough')" class="toolbar-btn format-btn" title="Strikethrough">
-            <s>S</s>
-          </button>
-          <select (mousedown)="$event.stopPropagation()" (change)="setFontSize($event)" class="font-size-dropdown" title="Font Size">
-            <option value="">Size</option>
-            <option value="8">8px</option>
-            <option value="10">10px</option>
-            <option value="12">12px</option>
-            <option value="14">14px</option>
-            <option value="16">16px</option>
-            <option value="18">18px</option>
-            <option value="20">20px</option>
-            <option value="24">24px</option>
-            <option value="28">28px</option>
-            <option value="32">32px</option>
-            <option value="36">36px</option>
-            <option value="42">42px</option>
-            <option value="48">48px</option>
-            <option value="56">56px</option>
-            <option value="64">64px</option>
-            <option value="72">72px</option>
-          </select>
-          <button (mousedown)="$event.preventDefault()" (click)="increaseFontSize()" class="toolbar-btn format-btn" title="Increase Font Size">
-            A+
-          </button>
-          <button (mousedown)="$event.preventDefault()" (click)="decreaseFontSize()" class="toolbar-btn format-btn" title="Decrease Font Size">
-            A-
-          </button>
-        </div>
-        <div class="toolbar-group">
-          <button (click)="toggleGrid()" class="toolbar-btn">
-            {{ canvasState.settings.showGrid ? '✓ Grid' : 'Grid' }}
-          </button>
-          <button (click)="cycleFontMode()" class="toolbar-btn" title="Toggle Font">
-            {{ fontMode === 'comic' ? '🎨 Comic' : (fontMode === 'serif' ? '📖 Serif' : '🔤 Sans') }}
-          </button>
-          <button (click)="cycleThemeMode()" class="toolbar-btn" title="Toggle Theme">
-            {{ themeMode === 'dark' ? '🌙 Dark' : (themeMode === 'oled' ? '⚫ OLED' : '☀️ Light') }}
-          </button>
-          <button (click)="resetView()" class="toolbar-btn" title="Center and reset canvas position">
-            Reset View
-          </button>
-          <button (click)="exportNotes()" class="toolbar-btn" title="Export all notes as JSON">
-            📤 Export
-          </button>
-          <button (click)="importNotes()" class="toolbar-btn" title="Import notes from JSON">
-            📥 Import
-          </button>
+        <!-- Row 1: Add, Export, Import, Delete, Grid -->
+        <div class="toolbar-row">
+          <button (click)="addNoteAtCenter()" class="toolbar-btn primary">+ Add</button>
+          <button (click)="exportNotes()" class="toolbar-btn" title="Export all notes as JSON">📤</button>
+          <button (click)="importNotes()" class="toolbar-btn" title="Import notes from JSON">📥</button>
           <input 
             #fileInput 
             type="file" 
             accept=".json" 
             (change)="onFileSelected($event)" 
             style="display: none">
-          <button (click)="deleteAllNotes()" class="toolbar-btn danger" title="Delete all notes">Delete All</button>
+          <button (click)="deleteAllNotes()" class="toolbar-btn danger" title="Delete all notes">🗑️</button>
+          <button (click)="toggleGrid()" class="toolbar-btn">
+            {{ canvasState.settings.showGrid ? '✓' : '✗' }}
+          </button>
         </div>
-        <div class="zoom-controls toolbar-group">
+        
+        <!-- Row 2: Font, Theme, Reset, Zoom controls -->
+        <div class="toolbar-row">
+          <button (click)="cycleFontMode()" class="toolbar-btn" title="Toggle Font">
+            {{ fontMode === 'comic' ? '🎨' : (fontMode === 'serif' ? '📖' : '🔤') }}
+          </button>
+          <button (click)="cycleThemeMode()" class="toolbar-btn" title="Toggle Theme">
+            {{ themeMode === 'dark' ? '🌙' : (themeMode === 'oled' ? '⚫' : '☀️') }}
+          </button>
+          <button (click)="resetView()" class="toolbar-btn" title="Center and reset canvas position">🎯</button>
           <button (click)="zoomOut()" class="toolbar-btn" title="Zoom Out (Ctrl + -)">−</button>
           <button (click)="resetZoom()" class="toolbar-btn" title="Reset Zoom (Ctrl + 0)">
             {{ (canvasState.viewport.zoom * 100).toFixed(0) }}%
           </button>
           <button (click)="zoomIn()" class="toolbar-btn" title="Zoom In (Ctrl + +)">+</button>
         </div>
-        <div class="toolbar-info">
-          <span class="notes-count" title="Total notes">📝 {{ notes.length }}</span>
-          <span class="coordinates" *ngIf="mousePosition">
-            ({{ mousePosition.gridX }}, {{ mousePosition.gridY }})
-          </span>
-        </div>
-        <span class="drag-status" *ngIf="isDraggingNote">🚫 Dragging</span>
       </div>
       
       <!-- Canvas Wrapper -->
@@ -156,6 +119,39 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
           </div>
         </div>
       </div>
+
+      <!-- Mobile Formatting Toolbar (Bottom) -->
+      <div class="mobile-formatting-toolbar">
+        <button (mousedown)="$event.preventDefault()" (click)="formatText('bold')" class="format-btn" title="Bold">
+          <strong>B</strong>
+        </button>
+        <button (mousedown)="$event.preventDefault()" (click)="formatText('italic')" class="format-btn" title="Italic">
+          <em>I</em>
+        </button>
+        <button (mousedown)="$event.preventDefault()" (click)="formatText('underline')" class="format-btn" title="Underline">
+          <u>U</u>
+        </button>
+        <button (mousedown)="$event.preventDefault()" (click)="formatText('strikeThrough')" class="format-btn" title="Strikethrough">
+          <s>S</s>
+        </button>
+        <select (mousedown)="$event.stopPropagation()" (change)="setFontSize($event)" class="font-size-dropdown" title="Font Size">
+          <option value="">Size</option>
+          <option value="12">12px</option>
+          <option value="14">14px</option>
+          <option value="16">16px</option>
+          <option value="18">18px</option>
+          <option value="20">20px</option>
+          <option value="24">24px</option>
+          <option value="28">28px</option>
+          <option value="32">32px</option>
+        </select>
+        <button (mousedown)="$event.preventDefault()" (click)="increaseFontSize()" class="format-btn" title="Increase Font Size">
+          A+
+        </button>
+        <button (mousedown)="$event.preventDefault()" (click)="decreaseFontSize()" class="format-btn" title="Decrease Font Size">
+          A-
+        </button>
+      </div>
     </div>
   `,
   styles: [`
@@ -170,6 +166,17 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
 
     .canvas-container.dragging {
       cursor: grabbing !important;
+    }
+
+    .notes-panel-wrapper {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 300px;
+      height: 100vh;
+      z-index: 1700;
+      transition: transform 0.3s ease;
+      transform: translateX(0);
     }
 
     .canvas-area {
@@ -452,6 +459,232 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
       border-color: #4285f4 !important;
       box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.3), 0 4px 12px rgba(0,0,0,0.4) !important;
     }
+
+    /* Mobile Formatting Toolbar - Hidden by default */
+    .mobile-formatting-toolbar {
+      display: none;
+    }
+
+    /* Mobile Menu Button */
+    .mobile-menu-btn {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      z-index: 2000;
+      width: 36px;
+      height: 72px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      backdrop-filter: blur(10px);
+      border: none;
+      border-radius: 0 16px 16px 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      box-shadow: 4px 0 16px rgba(102, 126, 234, 0.4);
+      transition: all 0.3s ease;
+      pointer-events: all;
+      color: white;
+    }
+
+    .mobile-menu-btn:active {
+      transform: translateY(-50%) scale(0.95);
+    }
+
+    .mobile-menu-btn svg {
+      transition: transform 0.3s ease;
+    }
+
+    .mobile-menu-btn.active {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      left: 300px;
+    }
+
+    .mobile-menu-btn.active svg {
+      transform: rotate(180deg);
+    }
+
+    /* Mobile Overlay */
+    .mobile-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .mobile-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      .canvas-container {
+        padding-left: 0;
+      }
+
+      .mobile-menu-btn {
+        display: flex;
+      }
+
+      .mobile-overlay {
+        display: block;
+      }
+
+      .notes-panel-wrapper {
+        transform: translateX(-100%) !important;
+      }
+
+      .notes-panel-wrapper.mobile-open {
+        transform: translateX(0) !important;
+      }
+
+      .toolbar {
+        left: 8px;
+        right: 8px;
+        top: 8px;
+        bottom: auto;
+        transform: none;
+        display: flex;
+        flex-direction: column;
+        max-width: none;
+        width: calc(100vw - 16px);
+        padding: 6px;
+        border-radius: 16px;
+        gap: 6px;
+      }
+
+      .toolbar-row {
+        display: flex;
+        gap: 6px;
+      }
+
+      .toolbar-row:first-child {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+      }
+
+      .toolbar-row:last-child {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+      }
+
+      .toolbar-btn:nth-child(1) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(2) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(3) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(4) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(5) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(6) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(7) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(8) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(9) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(10) { grid-column: auto; grid-row: auto; }
+      .toolbar-btn:nth-child(11) { grid-column: auto; grid-row: auto; }
+
+      .toolbar-group {
+        display: contents;
+      }
+
+      .formatting-group {
+        display: none;
+      }
+
+      .toolbar-btn {
+        padding: 8px;
+        font-size: 11px;
+        min-height: 38px;
+        min-width: auto;
+      }
+
+      .toolbar-btn.primary {
+        grid-column: 1 / 1;
+        grid-row: 1;
+      }
+
+      .zoom-controls {
+        display: contents;
+      }
+
+      .toolbar-info {
+        display: none;
+      }
+
+      /* Mobile Rich Text Toolbar at Bottom */
+      .mobile-formatting-toolbar {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 1500;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        padding: 12px 16px;
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        gap: 8px;
+        align-items: center;
+        justify-content: space-around;
+        flex-wrap: wrap;
+      }
+
+      .mobile-formatting-toolbar .format-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 8px 12px;
+        background: rgba(102, 126, 234, 0.1);
+        border: none;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 600;
+        color: #667eea;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .mobile-formatting-toolbar .format-btn:active {
+        background: rgba(102, 126, 234, 0.2);
+        transform: scale(0.95);
+      }
+
+      .mobile-formatting-toolbar .font-size-dropdown {
+        padding: 8px 12px;
+        min-height: 44px;
+        border-radius: 12px;
+        background: rgba(102, 126, 234, 0.1);
+        border: none;
+        color: #667eea;
+        font-size: 14px;
+        font-weight: 600;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .toolbar {
+        padding: 4px 6px;
+        gap: 4px;
+      }
+
+      .toolbar-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
+      .font-size-dropdown {
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+    }
   `]
 })
 export class CanvasComponent implements OnInit, OnDestroy {
@@ -494,6 +727,7 @@ export class CanvasComponent implements OnInit, OnDestroy {
   private canvasMouseDownTime = 0;
   private isClickFromCanvas = false;
   private potentialCanvasPan = false;
+  isMobilePanelOpen = false;
 
   private updateCanvasPosition(): void {
     // No need for explicit update since we're using CSS variables
@@ -679,6 +913,83 @@ export class CanvasComponent implements OnInit, OnDestroy {
         this.lastMouseX = event.clientX;
         this.lastMouseY = event.clientY;
       }
+    }
+  }
+
+  // Touch event properties
+  private lastTouchX = 0;
+  private lastTouchY = 0;
+  private lastTouchDistance = 0;
+  private isTouchPanning = false;
+  private isTouchPinching = false;
+
+  @HostListener('touchstart', ['$event'])
+  onTouchStart(event: TouchEvent): void {
+    if (event.touches.length === 1) {
+      // Single touch - potential pan
+      const touch = event.touches[0];
+      this.lastTouchX = touch.clientX;
+      this.lastTouchY = touch.clientY;
+      this.isTouchPanning = true;
+    } else if (event.touches.length === 2) {
+      // Two finger touch - pinch zoom
+      this.isTouchPanning = false;
+      this.isTouchPinching = true;
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      this.lastTouchDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+    }
+  }
+
+  @HostListener('touchmove', ['$event'])
+  onTouchMove(event: TouchEvent): void {
+    if (event.touches.length === 1 && this.isTouchPanning) {
+      // Single touch pan
+      event.preventDefault();
+      const touch = event.touches[0];
+      const dx = touch.clientX - this.lastTouchX;
+      const dy = touch.clientY - this.lastTouchY;
+
+      this.canvasOffset.x += dx;
+      this.canvasOffset.y += dy;
+
+      this.lastTouchX = touch.clientX;
+      this.lastTouchY = touch.clientY;
+    } else if (event.touches.length === 2 && this.isTouchPinching) {
+      // Pinch zoom
+      event.preventDefault();
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      const currentDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+
+      if (this.lastTouchDistance > 0) {
+        const scale = currentDistance / this.lastTouchDistance;
+        this.canvasService.zoomBy(scale).catch(err => console.error('Zoom failed', err));
+      }
+
+      this.lastTouchDistance = currentDistance;
+    }
+  }
+
+  @HostListener('touchend', ['$event'])
+  onTouchEnd(event: TouchEvent): void {
+    if (event.touches.length === 0) {
+      this.isTouchPanning = false;
+      this.isTouchPinching = false;
+      this.lastTouchDistance = 0;
+    } else if (event.touches.length === 1) {
+      // Switched from pinch to pan
+      this.isTouchPinching = false;
+      const touch = event.touches[0];
+      this.lastTouchX = touch.clientX;
+      this.lastTouchY = touch.clientY;
+      this.isTouchPanning = true;
     }
   }
 
@@ -1486,6 +1797,16 @@ export class CanvasComponent implements OnInit, OnDestroy {
     document.body.classList.remove('dark-mode', 'oled-mode');
     if (this.themeMode === 'dark') document.body.classList.add('dark-mode');
     if (this.themeMode === 'oled') document.body.classList.add('oled-mode');
+  }
+
+  toggleMobilePanel(): void {
+    this.isMobilePanelOpen = !this.isMobilePanelOpen;
+    console.log('Mobile panel toggled:', this.isMobilePanelOpen);
+  }
+
+  closeMobilePanel(): void {
+    this.isMobilePanelOpen = false;
+    console.log('Mobile panel closed');
   }
 
   toggleAddButtons(): void {

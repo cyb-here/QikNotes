@@ -618,3 +618,123 @@ body.oled-mode .panel-footer {
   background: #000000 !important;
   border-top-color: #222 !important;
 }
+
+/* Mobile Responsive Improvements */
+@media (max-width: 768px) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Prevent double-tap zoom */
+  * {
+    touch-action: pan-x pan-y;
+  }
+
+  [contenteditable] {
+    touch-action: manipulation;
+  }
+
+  /* Improve button touch targets */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mobile overlay for panel */
+  body.dark-mode .mobile-menu-btn {
+    background: rgba(22, 27, 34, 0.95) !important;
+  }
+
+  body.dark-mode .mobile-menu-btn span {
+    background: #c9d1d9 !important;
+  }
+
+  body.dark-mode .mobile-formatting-toolbar {
+    background: rgba(22, 27, 34, 0.95) !important;
+    border-top-color: #30363d !important;
+  }
+
+  body.dark-mode .mobile-formatting-toolbar .format-btn {
+    background: rgba(31, 111, 235, 0.15) !important;
+    color: #58a6ff !important;
+  }
+
+  body.dark-mode .mobile-formatting-toolbar .format-btn:active {
+    background: rgba(31, 111, 235, 0.25) !important;
+  }
+
+  body.dark-mode .mobile-formatting-toolbar .font-size-dropdown {
+    background: rgba(31, 111, 235, 0.15) !important;
+    color: #58a6ff !important;
+  }
+
+  body.oled-mode .mobile-menu-btn {
+    background: rgba(10, 10, 10, 0.95) !important;
+  }
+
+  body.oled-mode .mobile-menu-btn span {
+    background: #e6eef6 !important;
+  }
+
+  body.oled-mode .mobile-formatting-toolbar {
+    background: rgba(10, 10, 10, 0.95) !important;
+    border-top-color: #222 !important;
+  }
+
+  body.oled-mode .mobile-formatting-toolbar .format-btn {
+    background: rgba(11, 132, 255, 0.2) !important;
+    color: #0b84ff !important;
+  }
+
+  body.oled-mode .mobile-formatting-toolbar .format-btn:active {
+    background: rgba(11, 132, 255, 0.3) !important;
+  }
+
+  body.oled-mode .mobile-formatting-toolbar .font-size-dropdown {
+    background: rgba(11, 132, 255, 0.2) !important;
+    color: #0b84ff !important;
+  }
+
+  /* Adjust canvas for mobile */
+  .canvas-container {
+    overflow: hidden;
+  }
+
+  /* Improve note sizing on mobile */
+  .note {
+    min-width: 150px !important;
+    min-height: 100px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Further optimize for small screens */
+  .note-content {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Adjust toolbar for very small screens */
+  .toolbar {
+    max-width: calc(100vw - 16px) !important;
+  }
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  body {
+    min-height: -webkit-fill-available;
+  }
+
+  .canvas-container {
+    min-height: -webkit-fill-available;
+  }
+}

@@ -341,6 +341,75 @@ import { Note } from '../../models';
     .release-content {
       scrollbar-width: none;
     }
+
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      .notes-panel {
+        box-shadow: 4px 0 16px rgba(0, 0, 0, 0.2);
+      }
+
+      .panel-header h2 {
+        font-size: 16px;
+      }
+
+      .search-box input {
+        width: 88%;
+        font-size: 13px;
+      }
+
+      .note-preview {
+        font-size: 13px;
+      }
+
+      .note-meta {
+        font-size: 11px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .notes-panel {
+        width: 280px;
+      }
+
+      .panel-header {
+        padding: 12px;
+      }
+
+      .panel-header h2 {
+        font-size: 15px;
+      }
+
+      .beta-badge {
+        font-size: 9px;
+        padding: 2px 6px;
+      }
+
+      .search-box input {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+
+      .note-item {
+        padding: 10px;
+      }
+
+      .release-header {
+        padding: 10px 12px;
+      }
+
+      .release-title h3 {
+        font-size: 13px;
+      }
+
+      .panel-footer {
+        padding: 10px 12px;
+      }
+
+      .github-button {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+    }
   `]
 })
 export class NotesPanelComponent {

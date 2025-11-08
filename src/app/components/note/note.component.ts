@@ -16,6 +16,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       <div class="button-area">
         <button class="drag-btn" 
                 (mousedown)="onDragStart($event)"
+                (touchstart)="onTouchDragStart($event)"
                 (click)="$event.stopPropagation()"
                 title="Drag note">
           <span class="drag-icon">⋮⋮</span>
@@ -249,6 +250,44 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       animation: highlight 1s ease-in-out;
       border-color: #4285f4;
     }
+
+    /* Mobile Touch Improvements */
+    @media (max-width: 768px) {
+      .button-area {
+        height: 44px;
+      }
+
+      .drag-btn {
+        height: 36px;
+        right: 52px;
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .drag-icon {
+        font-size: 18px;
+      }
+
+      .delete-btn-float {
+        width: 36px;
+        height: 36px;
+        font-size: 22px;
+        right: 8px;
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .note-content {
+        font-size: 15px;
+        line-height: 1.5;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .note-content {
+        font-size: 14px;
+      }
+    }
   `]
 })
 export class NoteComponent implements AfterViewInit {
@@ -418,6 +457,98 @@ export class NoteComponent implements AfterViewInit {
     // Emit drag started
     this.dragStarted.emit();
   }
+
+  onTouchDragStart(event: TouchEvent): void {
+    if (event.touches.length !== 1) return;
+    
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const touch = event.touches[0];
+    this.isDragging = true;
+    this.hasDragged = false;
+    this.dragStartX = touch.clientX;
+    this.dragStartY = touch.clientY;
+    this.originalPosition = { ...this.note.position };
+    
+    // Emit drag started
+    this.dragStarted.emit();
+
+    // Add touch move and end listeners
+    document.addEventListener('touchmove', this.onTouchMoveHandler);
+    document.addEventListener('touchend', this.onTouchEndHandler);
+  }
+
+  private onTouchMoveHandler = (event: TouchEvent) => {
+    if (!this.isDragging || event.touches.length !== 1) return;
+
+    const touch = event.touches[0];
+    const deltaX = Math.abs(touch.clientX - this.dragStartX);
+    const deltaY = Math.abs(touch.clientY - this.dragStartY);
+    
+    if (deltaX > 5 || deltaY > 5) {
+      this.hasDragged = true;
+      event.preventDefault();
+      
+      // Calculate pixel delta
+      const pixelDeltaX = (touch.clientX - this.dragStartX) / this.zoom;
+      const pixelDeltaY = (touch.clientY - this.dragStartY) / this.zoom;
+      
+      // Calculate grid position for overlap detection
+      const gridDeltaX = Math.round(pixelDeltaX / this.settings.cellWidth);
+      const gridDeltaY = Math.round(pixelDeltaY / this.settings.cellHeight);
+      
+      // Emit current drag position
+      const currentGridX = this.originalPosition.gridX + gridDeltaX;
+      const currentGridY = this.originalPosition.gridY + gridDeltaY;
+      this.dragMove.emit({
+        gridX: currentGridX,
+        gridY: currentGridY,
+        width: this.note.size.width,
+        height: this.note.size.height
+      });
+      
+      // Update visual position
+      const containerElement = this.elementRef.nativeElement.querySelector('.note-container') as HTMLElement;
+      if (containerElement) {
+        const baseX = 5000 + (this.originalPosition.gridX * this.settings.cellWidth);
+        const baseY = 5000 + (this.originalPosition.gridY * this.settings.cellHeight) - 40;
+        const translateX = baseX + pixelDeltaX;
+        const translateY = baseY + pixelDeltaY;
+        containerElement.style.transform = `translate(${translateX}px, ${translateY}px)`;
+      }
+    }
+  };
+
+  private onTouchEndHandler = (event: TouchEvent) => {
+    if (!this.isDragging) return;
+
+    document.removeEventListener('touchmove', this.onTouchMoveHandler);
+    document.removeEventListener('touchend', this.onTouchEndHandler);
+
+    this.isDragging = false;
+    
+    if (this.hasDragged) {
+      const containerElement = this.elementRef.nativeElement.querySelector('.note-container') as HTMLElement;
+      if (containerElement) {
+        const transform = containerElement.style.transform;
+        const matches = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        
+        if (matches) {
+          const finalX = parseFloat(matches[1]);
+          const finalY = parseFloat(matches[2]) + 40;
+          
+          const gridX = Math.round((finalX - 5000) / this.settings.cellWidth);
+          const gridY = Math.round((finalY - 5000) / this.settings.cellHeight);
+          
+          this.positionChanged.emit({ gridX, gridY });
+        }
+      }
+      this.dragEnded.emit();
+    }
+    
+    this.hasDragged = false;
+  };
 
   onTextAreaMouseDown(event: MouseEvent): void {
     // Stop textarea mousedown from triggering drag
