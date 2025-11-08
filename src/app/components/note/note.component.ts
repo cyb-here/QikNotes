@@ -207,6 +207,16 @@ export class NoteComponent implements AfterViewInit {
     if (this.contentEditable && this.note.content) {
       this.contentEditable.nativeElement.innerHTML = this.note.content;
     }
+    
+    console.log('Note rendered:', {
+      id: this.note.id,
+      position: this.note.position,
+      worldPos: {
+        x: 5000 + (this.note.position.gridX * this.settings.cellWidth),
+        y: 5000 + (this.note.position.gridY * this.settings.cellHeight)
+      },
+      element: this.elementRef.nativeElement
+    });
   }
 
   @HostListener('document:mousemove', ['$event'])
@@ -258,7 +268,10 @@ export class NoteComponent implements AfterViewInit {
     this.isDragging = false;
     
     if (this.hasDragged) {
-      // Calculate final grid position from the current transform
+      // Emit drag ended FIRST so parent can commit preview state
+      this.dragEnded.emit();
+      
+      // Then calculate and emit final position
       const noteElement = this.elementRef.nativeElement.querySelector('.note') as HTMLElement;
       if (noteElement) {
         const transform = noteElement.style.transform;
@@ -274,10 +287,8 @@ export class NoteComponent implements AfterViewInit {
             gridY: Math.round((translateY - 5000) / this.settings.cellHeight)
           };
 
-          // Only update if position actually changed
-          if (newPosition.gridX !== this.originalPosition.gridX || newPosition.gridY !== this.originalPosition.gridY) {
-            this.positionChanged.emit(newPosition);
-          }
+          // Emit final position for saving
+          this.positionChanged.emit(newPosition);
         }
         
         // Reset transform (parent will update it)
@@ -289,8 +300,6 @@ export class NoteComponent implements AfterViewInit {
       event.preventDefault();
     }
     
-    // Emit drag ended
-    this.dragEnded.emit();
     this.hasDragged = false;
   }
 

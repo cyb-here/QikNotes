@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, HostListener, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, HostListener, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Note, CanvasState, GridPosition } from '../../models';
@@ -150,7 +150,7 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
               (sizeChanged)="updateNoteSize(note.id, $event)"
               (dragMove)="onNoteDragMove(note.id, $event)"
               (delete)="deleteNote(note.id)"
-              (dragStarted)="onNoteDragStart()"
+              (dragStarted)="onNoteDragStart(note.id)"
               (dragEnded)="onNoteDragEnd()"
               (dragCancelled)="onNoteDragCancelled()">
             </app-note>
@@ -396,6 +396,7 @@ export class CanvasComponent implements OnInit, OnDestroy {
   private boundGlobalWheelHandler: ((e: WheelEvent) => void) | null = null;
   private notesService = inject(NotesService);
   private canvasService = inject(CanvasService);
+  private cdr = inject(ChangeDetectorRef);
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -686,7 +687,15 @@ export class CanvasComponent implements OnInit, OnDestroy {
     
     // Load notes
     this.notesService.getNotes().subscribe(notes => {
+      console.log('Notes subscription fired, loaded', notes.length, 'notes');
+      
+      // Log each note's position for debugging
+      notes.forEach(note => {
+        console.log('  Note', note.id, 'at position', note.position);
+      });
+      
       this.notes = notes;
+      
       // Clean up any notes with invalid coordinates
       this.fixInvalidNotePositions();
     });
@@ -862,25 +871,68 @@ export class CanvasComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Store the dragged note ID and backup original positions on first call
-    if (this.isDraggingNote && !this.draggedNoteId) {
-      this.draggedNoteId = noteId;
-      // Backup all notes' positions
-      this.notes.forEach(note => {
-        this.originalPositionsBackup.set(note.id, { ...note.position });
-      });
-    }
-
-    // If we're dragging, handle preview mode
-    if (this.isDraggingNote && this.draggedNoteId === noteId) {
-      // Preview the moved note's new position temporarily
-      this.previewNotePosition(movedNote, newPosition);
-    } else {
-      // Not dragging - make permanent change immediately
-      this.notesService.updateNotePosition(noteId, newPosition).catch(error => {
+    // Normalize positions to handle -0 vs 0
+    const normalizedNewX = newPosition.gridX === 0 ? 0 : newPosition.gridX;
+    const normalizedNewY = newPosition.gridY === 0 ? 0 : newPosition.gridY;
+    const normalizedOldX = movedNote.position.gridX === 0 ? 0 : movedNote.position.gridX;
+    const normalizedOldY = movedNote.position.gridY === 0 ? 0 : movedNote.position.gridY;
+    
+    const finalPosition = { gridX: normalizedNewX, gridY: normalizedNewY };
+    
+    // Check if position actually changed
+    if (normalizedOldX === normalizedNewX && normalizedOldY === normalizedNewY) {
+      console.log('=== POSITION UNCHANGED - NO COLLISION CHECK ===');
+      // Still update the service to ensure consistency
+      this.notesService.updateNotePosition(noteId, finalPosition).catch(error => {
         console.error('Error updating note position:', error);
       });
+      // Return early - no collision detection needed if note hasn't moved
+      return;
     }
+    
+    console.log('Position changed from', movedNote.position, 'to', finalPosition);
+
+    // Check for overlaps and find new positions for overlapping notes
+    const movedNoteRight = normalizedNewX + movedNote.size.width;
+    const movedNoteBottom = normalizedNewY + movedNote.size.height;
+    
+    const movedNoteBounds = {
+      left: normalizedNewX,
+      right: movedNoteRight,
+      top: normalizedNewY,
+      bottom: movedNoteBottom,
+      width: movedNote.size.width,
+      height: movedNote.size.height
+    };
+    
+    // Find overlapping notes and move them
+    for (const otherNote of this.notes) {
+      if (otherNote.id === noteId) continue;
+      
+      const otherLeft = otherNote.position.gridX;
+      const otherRight = otherNote.position.gridX + otherNote.size.width;
+      const otherTop = otherNote.position.gridY;
+      const otherBottom = otherNote.position.gridY + otherNote.size.height;
+      
+      const overlapsX = !(movedNoteRight <= otherLeft || normalizedNewX >= otherRight);
+      const overlapsY = !(movedNoteBottom <= otherTop || normalizedNewY >= otherBottom);
+      
+      if (overlapsX && overlapsY) {
+        // Find next available position for the overlapping note
+        const newOtherPosition = this.findNextAvailablePosition(otherNote, movedNoteBounds);
+        
+        if (newOtherPosition) {
+          this.notesService.updateNotePosition(otherNote.id, newOtherPosition).catch((error: unknown) => {
+            console.error('Error moving overlapping note:', error);
+          });
+        }
+      }
+    }
+    
+    // Save the moved note's position with normalized values
+    this.notesService.updateNotePosition(noteId, finalPosition).catch(error => {
+      console.error('Error updating note position:', error);
+    });
   }
 
   private previewNotePosition(movedNote: Note, newPosition: GridPosition): void {
@@ -1564,32 +1616,19 @@ export class CanvasComponent implements OnInit, OnDestroy {
     }
   }
 
-  onNoteDragStart(): void {
+  onNoteDragStart(noteId: string): void {
     this.isDraggingNote = true;
-    // Clear any previous backup
-    this.originalPositionsBackup.clear();
-    this.temporaryPositions.clear();
+    this.draggedNoteId = noteId;
+    console.log('Drag started for note:', noteId);
   }
 
   onNoteDragEnd(): void {
-    setTimeout(() => {
-      this.isDraggingNote = false;
-    }, 50);
+    console.log('onNoteDragEnd called, draggedNoteId:', this.draggedNoteId);
     
-    // Commit or restore positions
-    if (this.draggedNoteId && this.temporaryPositions.size > 0) {
-      // Make temporary positions permanent
-      this.temporaryPositions.forEach((tempPos, noteId) => {
-        this.notesService.updateNotePosition(noteId, tempPos).catch((error: unknown) => {
-          console.error('Error committing position:', error);
-        });
-      });
-    }
-    
-    // Clear backups
+    // Clear drag state
+    this.isDraggingNote = false;
     this.draggedNoteId = null;
-    this.originalPositionsBackup.clear();
-    this.temporaryPositions.clear();
+    console.log('Drag state cleared');
     
     // Reset z-index for all notes after drag ends
     this.notes.forEach(note => {
@@ -1601,24 +1640,11 @@ export class CanvasComponent implements OnInit, OnDestroy {
   }
 
   onNoteDragCancelled(): void {
-    setTimeout(() => {
-      this.isDraggingNote = false;
-    }, 50);
+    console.log('Drag cancelled');
     
-    // Restore all notes to their original positions
-    if (this.originalPositionsBackup.size > 0) {
-      this.originalPositionsBackup.forEach((originalPos, noteId) => {
-        const note = this.notes.find(n => n.id === noteId);
-        if (note) {
-          note.position = { ...originalPos };
-        }
-      });
-    }
-    
-    // Clear backups
+    // Clear drag state
+    this.isDraggingNote = false;
     this.draggedNoteId = null;
-    this.originalPositionsBackup.clear();
-    this.temporaryPositions.clear();
     
     // Reset z-index for all notes
     this.notes.forEach(note => {
@@ -1630,11 +1656,11 @@ export class CanvasComponent implements OnInit, OnDestroy {
   }
 
   onNoteDragMove(draggedNoteId: string, dragBounds: { gridX: number; gridY: number; width: number; height: number }): void {
-    // Check each note for overlap with the dragging note
+    // Just update z-index for visual feedback during drag
+    // Don't modify positions yet - that happens on drop
     this.notes.forEach(note => {
       if (note.id === draggedNoteId) return;
 
-      // Calculate if notes overlap
       const noteLeft = note.position.gridX;
       const noteRight = note.position.gridX + note.size.width;
       const noteTop = note.position.gridY;
@@ -1645,19 +1671,12 @@ export class CanvasComponent implements OnInit, OnDestroy {
       const dragTop = dragBounds.gridY;
       const dragBottom = dragBounds.gridY + dragBounds.height;
 
-      // Check for overlap
       const overlaps = !(noteRight <= dragLeft || noteLeft >= dragRight || 
                         noteBottom <= dragTop || noteTop >= dragBottom);
 
       const noteElement = document.querySelector(`[data-note-id="${note.id}"]`) as HTMLElement;
-      if (noteElement) {
-        if (overlaps) {
-          // Move overlapping note behind (lower z-index)
-          noteElement.style.zIndex = '1';
-        } else {
-          // Reset z-index for non-overlapping notes
-          noteElement.style.zIndex = '';
-        }
+      if (noteElement && overlaps) {
+        noteElement.style.zIndex = '1';
       }
     });
   }
@@ -1695,10 +1714,43 @@ export class CanvasComponent implements OnInit, OnDestroy {
 
     // Use setTimeout with 0ms to ensure change detection runs before re-enabling transitions
     setTimeout(() => {
-      this.canvasOffset.x = -note.position.gridX * cellWidth;
-      this.canvasOffset.y = -note.position.gridY * cellHeight;
+      // Create new object reference for change detection
+      this.canvasOffset = {
+        x: -note.position.gridX * cellWidth,
+        y: -note.position.gridY * cellHeight
+      };
 
-      console.log('navigateToNote:', { grid: note.position, offset: this.canvasOffset });
+      console.log('🎯 NAVIGATING TO NOTE 🎯', { 
+        grid: note.position, 
+        offset: this.canvasOffset,
+        noteWorldPos: {
+          x: 5000 + (note.position.gridX * cellWidth),
+          y: 5000 + (note.position.gridY * cellHeight)
+        },
+        cellSize: { width: cellWidth, height: cellHeight }
+      });
+
+      // Manually trigger change detection
+      this.cdr.detectChanges();
+      
+      // Force browser reflow to apply the transform immediately
+      const canvasArea = document.querySelector('.canvas-area');
+      if (canvasArea) {
+        // Reading offsetHeight forces a reflow
+        void canvasArea.getBoundingClientRect();
+        
+        // Check what CSS variables are actually set
+        const computedStyle = window.getComputedStyle(canvasArea);
+        const actualOffsetX = computedStyle.getPropertyValue('--offset-x');
+        const actualOffsetY = computedStyle.getPropertyValue('--offset-y');
+        const actualTransform = computedStyle.getPropertyValue('transform');
+        
+        console.log('🔄 Browser reflow forced', {
+          expectedOffset: this.canvasOffset,
+          actualCSSVars: { x: actualOffsetX, y: actualOffsetY },
+          actualTransform: actualTransform
+        });
+      }
 
       // Re-enable transition after a brief delay
       setTimeout(() => {

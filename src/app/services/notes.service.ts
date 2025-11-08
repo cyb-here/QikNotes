@@ -37,11 +37,15 @@ export class NotesService {
   }
 
   async updateNote(noteId: string, content: string): Promise<void> {
-    const note = this.notes.find((n) => n.id === noteId);
-    if (note) {
-      note.content = content;
-      note.updatedAt = new Date();
-      await this.storage.saveNote(note);
+    const noteIndex = this.notes.findIndex((n) => n.id === noteId);
+    if (noteIndex !== -1) {
+      // Create a new note object instead of mutating
+      this.notes[noteIndex] = {
+        ...this.notes[noteIndex],
+        content: content,
+        updatedAt: new Date()
+      };
+      await this.storage.saveNote(this.notes[noteIndex]);
       this.notesSubject.next([...this.notes]);
     }
   }
@@ -86,22 +90,30 @@ export class NotesService {
   }
 
   async updateNotePosition(noteId: string, newPosition: GridPosition): Promise<void> {
-    const note = this.notes.find(n => n.id === noteId);
-    if (note) {
-      note.position = newPosition;
-      note.updatedAt = new Date();
-      await this.storage.saveNote(note);
+    const noteIndex = this.notes.findIndex(n => n.id === noteId);
+    if (noteIndex !== -1) {
+      // Create a new note object instead of mutating
+      this.notes[noteIndex] = {
+        ...this.notes[noteIndex],
+        position: newPosition,
+        updatedAt: new Date()
+      };
+      await this.storage.saveNote(this.notes[noteIndex]);
       this.notesSubject.next([...this.notes]);
       console.log('Note position updated:', noteId, newPosition);
     }
   }
 
   async updateNoteSize(noteId: string, newSize: { width: number; height: number }): Promise<void> {
-    const note = this.notes.find(n => n.id === noteId);
-    if (note) {
-      note.size = newSize;
-      note.updatedAt = new Date();
-      await this.storage.saveNote(note);
+    const noteIndex = this.notes.findIndex(n => n.id === noteId);
+    if (noteIndex !== -1) {
+      // Create a new note object instead of mutating
+      this.notes[noteIndex] = {
+        ...this.notes[noteIndex],
+        size: newSize,
+        updatedAt: new Date()
+      };
+      await this.storage.saveNote(this.notes[noteIndex]);
       this.notesSubject.next([...this.notes]);
       console.log('Note size updated:', noteId, newSize);
     }
