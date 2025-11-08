@@ -81,12 +81,32 @@ export class NotesService {
   private async loadNotes(): Promise<void> {
     try {
       this.notes = await this.storage.getNotes();
+      
+      // Create a default welcome note if no notes exist
+      if (this.notes.length === 0) {
+        await this.createDefaultWelcomeNote();
+      }
+      
       this.notesSubject.next([...this.notes]);
     } catch (error) {
       console.error('Failed to load notes:', error);
       this.notes = [];
       this.notesSubject.next([]);
     }
+  }
+
+  private async createDefaultWelcomeNote(): Promise<void> {
+    const welcomeNote: Note = {
+      id: this.generateId(),
+      position: { gridX: 0, gridY: 0 },
+      content: 'Welcome to QikNotes\nStart typing here',
+      size: { width: 1, height: 1 },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    this.notes.push(welcomeNote);
+    await this.storage.saveNote(welcomeNote);
   }
 
   async updateNotePosition(noteId: string, newPosition: GridPosition): Promise<void> {

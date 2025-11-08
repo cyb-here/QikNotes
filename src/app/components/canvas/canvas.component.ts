@@ -26,9 +26,6 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
       <div class="toolbar">
         <div class="toolbar-group">
           <button (click)="addNoteAtCenter()" class="toolbar-btn primary">+ Add Note</button>
-          <button (click)="toggleAddButtons()" class="toolbar-btn">
-            {{ showAddButtons ? '✓ Quick Add' : '+ Quick Add' }}
-          </button>
         </div>
         <div class="toolbar-group formatting-group">
           <button (mousedown)="$event.preventDefault()" (click)="formatText('bold')" class="toolbar-btn format-btn" title="Bold (Ctrl+B)">
@@ -820,8 +817,8 @@ export class CanvasComponent implements OnInit, OnDestroy {
     }
 
     if (isPinch) {
-      // Use an exponential mapping for smooth zooming (increased from 0.002 to 0.005 for faster zoom)
-      const factor = Math.exp(-dy * 0.005);
+      // Use an exponential mapping for smooth zooming (increased to 0.008 for faster zoom)
+      const factor = Math.exp(-dy * 0.008);
       this.canvasService.zoomBy(factor).catch(err => console.error('Zoom failed', err));
     } else {
       // Treat as pan (two-finger scroll). Invert deltas so the content moves

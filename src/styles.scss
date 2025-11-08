@@ -21,6 +21,177 @@ body.font-serif * {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* Hide scrollbars globally */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0px;
+  height: 0px;
+}
+
+/* Light Mode - Less bright colors */
+body {
+  background-color: #f0f2f5;
+}
+
+.canvas-container {
+  background: #f0f2f5 !important;
+}
+
+.toolbar {
+  background: rgba(242, 244, 247, 0.85) !important;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 
+              0 2px 4px rgba(0, 0, 0, 0.06),
+              inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+}
+
+.toolbar-btn {
+  background: rgba(242, 244, 247, 0.8) !important;
+  color: #374151 !important;
+}
+
+.toolbar-btn:hover {
+  background: rgba(248, 250, 252, 0.95) !important;
+}
+
+.toolbar-btn.primary {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3) !important;
+}
+
+.toolbar-btn.primary:hover {
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4) !important;
+}
+
+.toolbar-btn.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3) !important;
+}
+
+.toolbar-btn.danger:hover {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4) !important;
+}
+
+.note {
+  background: #f5f7fa !important;
+  border-color: #d1d5db !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.note.focused {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2), 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Notes Panel Light Mode */
+.notes-panel {
+  background: rgba(245, 247, 250, 0.95) !important;
+  border-right-color: #d1d5db !important;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.06) !important;
+}
+
+.panel-header {
+  background: #f3f4f6 !important;
+  border-bottom-color: #d1d5db !important;
+}
+
+.panel-header h2 {
+  color: #374151 !important;
+}
+
+.search-box input {
+  background: #e5e7eb !important;
+  color: #374151 !important;
+  border-color: #d1d5db !important;
+}
+
+.search-box input::placeholder {
+  color: #9ca3af !important;
+}
+
+.search-box input:focus {
+  border-color: #f59e0b !important;
+  background: #f5f7fa !important;
+}
+
+.note-item {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+}
+
+.note-item:hover {
+  background: #e5e7eb !important;
+  border-color: #9ca3af !important;
+}
+
+.note-item.active {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+}
+
+.note-preview {
+  color: #374151 !important;
+}
+
+.note-meta {
+  color: #6b7280 !important;
+}
+
+.release-notes {
+  background: #f3f4f6 !important;
+  border-top-color: #d1d5db !important;
+}
+
+.release-header {
+  background: #e5e7eb !important;
+}
+
+.release-header:hover {
+  background: #d1d5db !important;
+}
+
+.release-title h3 {
+  color: #374151 !important;
+}
+
+.toggle-icon {
+  color: #9ca3af !important;
+}
+
+.feature-item {
+  background: #f5f7fa !important;
+  border-left-color: #f59e0b !important;
+}
+
+.feature-item:hover {
+  background: #fef3c7 !important;
+  border-left-color: #f59e0b !important;
+}
+
+.feature-text {
+  color: #374151 !important;
+}
+
+.feature-text strong {
+  color: #d97706 !important;
+}
+
+.section-header h3 {
+  color: #374151 !important;
+}
+
+.panel-footer {
+  background: #f3f4f6 !important;
+  border-top-color: #d1d5db !important;
+}
+
 /* Rich text formatting styles */
 [contenteditable] strong,
 [contenteditable] b {
@@ -137,6 +308,21 @@ body.dark-mode .panel-header {
   color: #c9d1d9 !important;
 }
 
+body.dark-mode .search-box input {
+  background: #21262d !important;
+  color: #c9d1d9 !important;
+  border-color: #30363d !important;
+}
+
+body.dark-mode .search-box input::placeholder {
+  color: #8b949e !important;
+}
+
+body.dark-mode .search-box input:focus {
+  border-color: #f59e0b !important;
+  background: #161b22 !important;
+}
+
 body.dark-mode .note-item {
   background: #21262d !important;
   border-color: #30363d !important;
@@ -200,6 +386,55 @@ body.dark-mode .font-size-dropdown:focus {
 body.dark-mode .font-size-dropdown option {
   background: #21262d !important;
   color: #c9d1d9 !important;
+}
+
+/* Dark Mode Release Notes */
+body.dark-mode .release-notes {
+  background: #21262d !important;
+  border-top-color: #30363d !important;
+}
+
+body.dark-mode .release-header {
+  background: #161b22 !important;
+}
+
+body.dark-mode .release-header:hover {
+  background: #21262d !important;
+}
+
+body.dark-mode .release-title h3 {
+  color: #c9d1d9 !important;
+}
+
+body.dark-mode .toggle-icon {
+  color: #8b949e !important;
+}
+
+body.dark-mode .section-header h3 {
+  color: #c9d1d9 !important;
+}
+
+body.dark-mode .feature-item {
+  background: #161b22 !important;
+  border-left-color: #f59e0b !important;
+}
+
+body.dark-mode .feature-item:hover {
+  background: #21262d !important;
+  border-left-color: #fbbf24 !important;
+}
+
+body.dark-mode .feature-text {
+  color: #c9d1d9 !important;
+}
+
+body.dark-mode .feature-text strong {
+  color: #fbbf24 !important;
+}
+
+body.dark-mode .panel-footer {
+  background: #161b22 !important;
+  border-top-color: #30363d !important;
 }
 
 /* OLED / True Black Mode */
@@ -269,6 +504,26 @@ body.oled-mode .notes-panel {
   border-right: 1px solid #222 !important;
 }
 
+body.oled-mode .panel-header {
+  background: #000000 !important;
+  border-bottom-color: #222 !important;
+}
+
+body.oled-mode .search-box input {
+  background: #0a0a0a !important;
+  color: #e6eef6 !important;
+  border-color: #333 !important;
+}
+
+body.oled-mode .search-box input::placeholder {
+  color: #cbd6e2 !important;
+}
+
+body.oled-mode .search-box input:focus {
+  border-color: #f59e0b !important;
+  background: #000000 !important;
+}
+
 body.oled-mode .note-item {
   background: #0a0a0a !important;
   border: 1px solid #333 !important;
@@ -315,3 +570,51 @@ body.oled-mode .font-size-dropdown option {
   color: #e6eef6 !important;
 }
 
+/* OLED Mode Release Notes */
+body.oled-mode .release-notes {
+  background: #0a0a0a !important;
+  border-top-color: #222 !important;
+}
+
+body.oled-mode .release-header {
+  background: #000000 !important;
+}
+
+body.oled-mode .release-header:hover {
+  background: #0a0a0a !important;
+}
+
+body.oled-mode .release-title h3 {
+  color: #e6eef6 !important;
+}
+
+body.oled-mode .toggle-icon {
+  color: #cbd6e2 !important;
+}
+
+body.oled-mode .section-header h3 {
+  color: #e6eef6 !important;
+}
+
+body.oled-mode .feature-item {
+  background: #000000 !important;
+  border-left-color: #f59e0b !important;
+}
+
+body.oled-mode .feature-item:hover {
+  background: #0a0a0a !important;
+  border-left-color: #fbbf24 !important;
+}
+
+body.oled-mode .feature-text {
+  color: #e6eef6 !important;
+}
+
+body.oled-mode .feature-text strong {
+  color: #fbbf24 !important;
+}
+
+body.oled-mode .panel-footer {
+  background: #000000 !important;
+  border-top-color: #222 !important;
+}
