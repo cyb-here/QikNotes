@@ -145,6 +145,7 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
               [settings]="canvasState.settings"
               [zoom]="canvasState.viewport.zoom"
               [class.no-transition]="isNavigating && note.id === activeNoteId"
+              [class.active-note]="note.id === activeNoteId"
               (contentChanged)="updateNoteContent(note.id, $event)"
               (positionChanged)="updateNotePosition(note.id, $event)"
               (sizeChanged)="updateNoteSize(note.id, $event)"
@@ -152,7 +153,8 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
               (delete)="deleteNote(note.id)"
               (dragStarted)="onNoteDragStart(note.id)"
               (dragEnded)="onNoteDragEnd()"
-              (dragCancelled)="onNoteDragCancelled()">
+              (dragCancelled)="onNoteDragCancelled()"
+              (noteClicked)="setActiveNote(note.id)">
             </app-note>
           </div>
         </div>
@@ -219,81 +221,139 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
     
     .toolbar {
       position: fixed;
-      top: 20px;
-      left: calc(50% + 150px); /* Offset by half the panel width */
+      top: 16px;
+      left: calc(50% + 150px);
       transform: translateX(-50%);
       z-index: 1000;
-      background: white;
-      padding: 12px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 8px 12px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 
+                  0 2px 8px rgba(0, 0, 0, 0.08),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      border: none;
       display: flex;
       align-items: center;
-      gap: 12px;
-      backdrop-filter: blur(8px);
-      background-color: rgba(255, 255, 255, 0.9);
+      gap: 8px;
     }
     
     .zoom-controls {
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 0 8px;
-      border-left: 1px solid #ddd;
-      border-right: 1px solid #ddd;
+      gap: 6px;
+      padding: 0 12px;
+      border-left: 1px solid rgba(0, 0, 0, 0.08);
+      border-right: 1px solid rgba(0, 0, 0, 0.08);
     }
 
     .toolbar-btn {
       padding: 8px 16px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      background: white;
+      border: none;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.6);
       cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      color: #333;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .toolbar-btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.6);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+    
+    .toolbar-btn:hover::before {
+      width: 300px;
+      height: 300px;
     }
     
     .toolbar-btn:hover {
-      background: #f5f5f5;
-      border-color: #ccc;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .toolbar-btn:active {
+      transform: translateY(0) scale(0.98);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .toolbar-btn.primary {
-      background: #007bff;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      border-color: #0056b3;
-    }
-
-    .toolbar-btn.danger {
-      background: #dc3545;
-      color: white;
-      border-color: #b21f2d;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
     }
 
     .toolbar-btn.primary:hover {
-      background: #0056b3;
+      box-shadow: 0 4px 16px rgba(102, 126, 234, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .toolbar-btn.danger {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      box-shadow: 0 2px 8px rgba(245, 87, 108, 0.4);
+    }
+
+    .toolbar-btn.danger:hover {
+      box-shadow: 0 4px 16px rgba(245, 87, 108, 0.5);
     }
 
     .toolbar-group {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       padding: 0 8px;
-      border-right: 1px solid #eee;
+      border-right: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .toolbar-group:first-child {
+      padding-left: 4px;
     }
 
     .toolbar-group:last-child {
       border-right: none;
+      padding-right: 4px;
     }
 
     .formatting-group {
-      border-left: 2px solid #ddd;
+      background: rgba(248, 250, 252, 0.5);
+      border-radius: 10px;
+      padding: 4px 8px !important;
+      border-left: none !important;
     }
 
     .format-btn {
-      min-width: 36px;
-      padding: 6px 10px;
-      font-weight: bold;
+      min-width: 32px;
+      padding: 6px 8px;
+      font-weight: 600;
+      border-radius: 8px;
+      background: transparent;
+      transition: all 0.15s;
+    }
+
+    .format-btn:hover {
+      background: rgba(102, 126, 234, 0.1);
+      color: #667eea;
+    }
+
+    .format-btn:active {
+      background: rgba(102, 126, 234, 0.2);
+      transform: scale(0.95);
     }
 
     .format-btn strong,
@@ -304,48 +364,48 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
       pointer-events: none;
     }
 
-    .format-btn:active {
-      background: #e0e0e0;
-      transform: scale(0.95);
-    }
-
     .font-size-dropdown {
-      padding: 6px 8px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      background: white;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.8);
       cursor: pointer;
       font-size: 13px;
+      font-weight: 500;
       outline: none;
       transition: all 0.2s;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      color: #333;
     }
 
     .font-size-dropdown:hover {
-      background: #f5f5f5;
-      border-color: #ccc;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
     }
 
     .font-size-dropdown:focus {
-      border-color: #007bff;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
     }
 
     .toolbar-info {
       display: flex;
       align-items: center;
       gap: 12px;
-      font-size: 14px;
-      color: #666;
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 500;
     }
     
     .notes-count, .coordinates, .drag-status {
-      font-size: 14px;
-      color: #666;
+      font-size: 13px;
+      color: #64748b;
       white-space: nowrap;
+      font-weight: 500;
     }
 
     .drag-status {
-      color: #ff4444;
-      font-weight: bold;
+      color: #f5576c;
+      font-weight: 600;
     }
     
     .canvas-area {
@@ -388,6 +448,12 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
     /* Disable transitions on notes during navigation */
     ::ng-deep app-note.no-transition .note {
       transition: none !important;
+    }
+
+    /* Highlight active note on canvas */
+    ::ng-deep app-note.active-note .note {
+      border-color: #4285f4 !important;
+      box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.3), 0 4px 12px rgba(0,0,0,0.4) !important;
     }
   `]
 })
@@ -654,8 +720,10 @@ export class CanvasComponent implements OnInit, OnDestroy {
           const wasDark = JSON.parse(savedDarkMode);
           this.themeMode = wasDark ? 'dark' : 'light';
         } catch {
-          this.themeMode = 'light';
+          this.themeMode = 'dark'; // Default to dark mode
         }
+      } else {
+        this.themeMode = 'dark'; // Default to dark mode
       }
     }
 
@@ -1068,23 +1136,30 @@ export class CanvasComponent implements OnInit, OnDestroy {
     const startX = note.position.gridX;
     const startY = note.position.gridY;
     
-    // If we have a preferred direction, try searching in that direction first
+    // If we have a preferred direction, try just one step in that direction first
     if (preferredDirection) {
-      const maxDirectionalSearch = 15;
-      
       // Determine search increments based on preferred direction
       const xIncrement = preferredDirection.horizontal === 'right' ? 1 : 
                         preferredDirection.horizontal === 'left' ? -1 : 0;
       const yIncrement = preferredDirection.vertical === 'down' ? 1 : 
                         preferredDirection.vertical === 'up' ? -1 : 0;
       
-      // Try moving in the preferred direction
-      for (let step = 1; step <= maxDirectionalSearch; step++) {
-        const testX = startX + (xIncrement * step);
-        const testY = startY + (yIncrement * step);
+      // Try just one step in the preferred direction
+      const testX = startX + xIncrement;
+      const testY = startY + yIncrement;
+      
+      if (this.isPositionAvailable(testX, testY, note.size.width, note.size.height, note.id, blockingNoteBounds)) {
+        return { gridX: testX, gridY: testY };
+      }
+      
+      // If one step doesn't work, try a bit further (max 3 steps in preferred direction)
+      const maxDirectionalSearch = 3;
+      for (let step = 2; step <= maxDirectionalSearch; step++) {
+        const testXFar = startX + (xIncrement * step);
+        const testYFar = startY + (yIncrement * step);
         
-        if (this.isPositionAvailable(testX, testY, note.size.width, note.size.height, note.id, blockingNoteBounds)) {
-          return { gridX: testX, gridY: testY };
+        if (this.isPositionAvailable(testXFar, testYFar, note.size.width, note.size.height, note.id, blockingNoteBounds)) {
+          return { gridX: testXFar, gridY: testYFar };
         }
       }
       
@@ -1812,7 +1887,7 @@ export class CanvasComponent implements OnInit, OnDestroy {
         y: -note.position.gridY * cellHeight
       };
 
-      console.log('🎯 NAVIGATING TO NOTE 🎯', { 
+      console.log('🎯 NAVIGATING TO NOTE 🎯', {
         grid: note.position, 
         offset: this.canvasOffset,
         noteWorldPos: {
@@ -1847,14 +1922,49 @@ export class CanvasComponent implements OnInit, OnDestroy {
       // Re-enable transition after a brief delay
       setTimeout(() => {
         this.isNavigating = false;
-        // Highlight after navigation is complete
+        // Highlight and focus after navigation is complete
         setTimeout(() => {
           if (this.activeNoteId === note.id) {
             this.highlightNote(note.id);
+            this.focusNote(note.id);
           }
         }, 50);
       }, 100);
     }, 0);
+  }
+
+  focusNote(noteId: string): void {
+    // Find the note component and focus its content
+    setTimeout(() => {
+      const noteElement = document.querySelector(`[data-note-id="${noteId}"]`);
+      if (noteElement) {
+        const contentEditableDiv = noteElement.querySelector('[contenteditable="true"]') as HTMLElement;
+        if (contentEditableDiv) {
+          contentEditableDiv.focus();
+          
+          // Place cursor at the end of the content
+          const range = document.createRange();
+          const sel = window.getSelection();
+          
+          if (contentEditableDiv.childNodes.length > 0) {
+            const lastNode = contentEditableDiv.childNodes[contentEditableDiv.childNodes.length - 1];
+            range.setStart(lastNode, lastNode.textContent?.length || 0);
+          } else {
+            range.setStart(contentEditableDiv, 0);
+          }
+          
+          range.collapse(true);
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        }
+      }
+    }, 150);
+  }
+
+  setActiveNote(noteId: string): void {
+    this.activeNoteId = noteId;
   }
 
   trackByNoteId(index: number, note: Note): string {

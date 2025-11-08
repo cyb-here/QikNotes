@@ -8,30 +8,33 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="note-wrapper"
+    <div class="note-container"
       [class.dragging]="isDragging"
-      [style.transform]="'translate(' + (5000 + (note.position.gridX * settings.cellWidth)) + 'px, ' + (5000 + (note.position.gridY * settings.cellHeight)) + 'px)'">
+      [style.transform]="'translate(' + (5000 + (note.position.gridX * settings.cellWidth)) + 'px, ' + (5000 + (note.position.gridY * settings.cellHeight) - 40) + 'px)'">
       
-      <!-- Floating Control Buttons -->
-      <button class="drag-btn" 
-              (mousedown)="onDragStart($event)"
-              (click)="$event.stopPropagation()"
-              title="Drag note">
-        <span class="drag-icon">⋮⋮</span>
-      </button>
-      
-      <button class="delete-btn-float" 
-              (click)="onDelete($event)"
-              title="Delete note">
-        ×
-      </button>
+      <!-- Button Area -->
+      <div class="button-area">
+        <button class="drag-btn" 
+                (mousedown)="onDragStart($event)"
+                (click)="$event.stopPropagation()"
+                title="Drag note">
+          <span class="drag-icon">⋮⋮</span>
+        </button>
+        
+        <button class="delete-btn-float" 
+                (click)="onDelete($event)"
+                title="Delete note">
+          ×
+        </button>
+      </div>
 
       <div 
         class="note" 
         [class.focused]="isFocused"
         [attr.data-note-id]="note.id"
         [style.width.px]="(note.size.width * settings.cellWidth) - 24"
-        [style.height.px]="(note.size.height * settings.cellHeight) - 24">
+        [style.height.px]="(note.size.height * settings.cellHeight) - 24"
+        (click)="onNoteClick($event)">
         
         <div 
           #contentEditable
@@ -48,27 +51,36 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
     </div>
   `,
   styles: [`
-    .note-wrapper {
+    .note-container {
       position: absolute;
       left: 0;
       top: 0;
       transform-origin: center center;
       will-change: transform;
       z-index: 1;
+      pointer-events: none;
     }
 
-    .note-wrapper:hover {
+    .note-container:hover {
       z-index: 10;
     }
 
-    .note-wrapper.dragging {
+    .note-container.dragging {
+      z-index: 1000;
+    }
+
+    /* Button Area - covers the button space */
+    .button-area {
+      position: relative;
+      height: 40px;
+      pointer-events: auto;
       z-index: 1000;
     }
 
     /* Floating Drag Button */
     .drag-btn {
       position: absolute;
-      top: -40px;
+      top: 0;
       left: 8px;
       right: 48px;
       height: 28px;
@@ -87,7 +99,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       transform: translateY(-4px);
       transition: all 0.2s ease;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 10;
+      pointer-events: auto;
     }
 
     .drag-btn:hover {
@@ -107,12 +119,18 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       user-select: none;
     }
 
-    .note-wrapper:hover .drag-btn {
+    .note-container:hover .drag-btn,
+    .button-area:hover .drag-btn {
       opacity: 1;
       transform: translateY(0);
     }
 
-    .note-wrapper.dragging .drag-btn {
+    .drag-btn:hover {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .note-container.dragging .drag-btn {
       opacity: 1;
       transform: translateY(0);
     }
@@ -120,7 +138,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
     /* Floating Delete Button */
     .delete-btn-float {
       position: absolute;
-      top: -40px;
+      top: 0;
       right: 8px;
       width: 28px;
       height: 28px;
@@ -140,8 +158,8 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       transform: scale(0.8);
       transition: all 0.2s ease;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 10;
       line-height: 1;
+      pointer-events: auto;
     }
 
     .delete-btn-float:hover {
@@ -155,24 +173,31 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       transform: scale(0.95);
     }
 
-    .note-wrapper:hover .delete-btn-float {
+    .note-container:hover .delete-btn-float,
+    .button-area:hover .delete-btn-float {
       opacity: 1;
       transform: scale(1);
     }
 
+    .delete-btn-float:hover {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
     .note {
       position: relative;
-      background: #2d2d2d;
-      border: 1px solid #444;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
       border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       padding: 8px;
       overflow: hidden;
       transition: box-shadow 0.2s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
       user-select: none;
+      pointer-events: auto;
     }
 
-    .note-wrapper.dragging .note {
+    .note-container.dragging .note {
       box-shadow: 0 5px 20px rgba(0,0,0,0.5);
       cursor: grabbing;
       transition: box-shadow 0.2s;
@@ -194,7 +219,7 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       line-height: 1.4;
       cursor: text;
       background: transparent;
-      color: #e0e0e0;
+      color: #1f2937;
       user-select: text;
       overflow: hidden;
       white-space: pre-wrap;
@@ -203,11 +228,11 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
 
     .note-content[data-placeholder]:empty:before {
       content: attr(data-placeholder);
-      color: #666;
+      color: #9ca3af;
       cursor: text;
     }
 
-    .note-wrapper.dragging .note-content {
+    .note-container.dragging .note-content {
       pointer-events: none;
     }
 
@@ -238,6 +263,7 @@ export class NoteComponent implements AfterViewInit {
   @Output() dragEnded = new EventEmitter<void>();
   @Output() dragCancelled = new EventEmitter<void>();
   @Output() dragMove = new EventEmitter<{ gridX: number; gridY: number; width: number; height: number }>();
+  @Output() noteClicked = new EventEmitter<void>();
   
   @ViewChild('contentEditable') contentEditable!: ElementRef<HTMLDivElement>;
 
@@ -298,13 +324,13 @@ export class NoteComponent implements AfterViewInit {
       });
       
       // Update visual position during drag using smooth pixel movement
-      const wrapperElement = this.elementRef.nativeElement.querySelector('.note-wrapper') as HTMLElement;
-      if (wrapperElement) {
+      const containerElement = this.elementRef.nativeElement.querySelector('.note-container') as HTMLElement;
+      if (containerElement) {
         const baseX = 5000 + (this.originalPosition.gridX * this.settings.cellWidth);
-        const baseY = 5000 + (this.originalPosition.gridY * this.settings.cellHeight);
+        const baseY = 5000 + (this.originalPosition.gridY * this.settings.cellHeight) - 40;
         const translateX = baseX + pixelDeltaX;
         const translateY = baseY + pixelDeltaY;
-        wrapperElement.style.transform = `translate(${translateX}px, ${translateY}px)`;
+        containerElement.style.transform = `translate(${translateX}px, ${translateY}px)`;
       }
     }
   }
@@ -317,15 +343,15 @@ export class NoteComponent implements AfterViewInit {
     
     if (this.hasDragged) {
       // Calculate final position from current transform
-      const wrapperElement = this.elementRef.nativeElement.querySelector('.note-wrapper') as HTMLElement;
-      if (wrapperElement) {
-        const transform = wrapperElement.style.transform;
+      const containerElement = this.elementRef.nativeElement.querySelector('.note-container') as HTMLElement;
+      if (containerElement) {
+        const transform = containerElement.style.transform;
         
         // Parse the translate values from the transform
         const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
         if (match) {
           const translateX = parseFloat(match[1]);
-          const translateY = parseFloat(match[2]);
+          const translateY = parseFloat(match[2]) + 40; // Add back the 40px offset
           
           const newPosition: GridPosition = {
             gridX: Math.round((translateX - 5000) / this.settings.cellWidth),
@@ -334,8 +360,8 @@ export class NoteComponent implements AfterViewInit {
 
           // Immediately snap to grid position visually
           const snappedX = 5000 + (newPosition.gridX * this.settings.cellWidth);
-          const snappedY = 5000 + (newPosition.gridY * this.settings.cellHeight);
-          wrapperElement.style.transform = `translate(${snappedX}px, ${snappedY}px)`;
+          const snappedY = 5000 + (newPosition.gridY * this.settings.cellHeight) - 40;
+          containerElement.style.transform = `translate(${snappedX}px, ${snappedY}px)`;
 
           // Emit final position for saving (this will trigger Angular update)
           this.positionChanged.emit(newPosition);
@@ -366,9 +392,9 @@ export class NoteComponent implements AfterViewInit {
       this.hasDragged = false;
       
       // Reset visual position to original
-      const wrapperElement = this.elementRef.nativeElement.querySelector('.note-wrapper') as HTMLElement;
-      if (wrapperElement) {
-        wrapperElement.style.transform = '';
+      const containerElement = this.elementRef.nativeElement.querySelector('.note-container') as HTMLElement;
+      if (containerElement) {
+        containerElement.style.transform = '';
       }
       
       // Emit drag cancelled
@@ -584,8 +610,37 @@ export class NoteComponent implements AfterViewInit {
     this.isFocused = true;
   }
 
+  focusContent(): void {
+    if (this.contentEditable) {
+      const contentDiv = this.contentEditable.nativeElement;
+      contentDiv.focus();
+      
+      // Place cursor at the end of the content
+      const range = document.createRange();
+      const sel = window.getSelection();
+      
+      if (contentDiv.childNodes.length > 0) {
+        const lastNode = contentDiv.childNodes[contentDiv.childNodes.length - 1];
+        range.setStart(lastNode, lastNode.textContent?.length || 0);
+      } else {
+        range.setStart(contentDiv, 0);
+      }
+      
+      range.collapse(true);
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+  }
+
   onDelete(event: MouseEvent): void {
     event.stopPropagation();
     this.delete.emit();
+  }
+
+  onNoteClick(event: MouseEvent): void {
+    // Emit note clicked event for highlighting in the list
+    this.noteClicked.emit();
   }
 }
