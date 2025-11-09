@@ -996,6 +996,12 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
         font-size: 11px;
       }
     }
+
+    @media (min-width: 769px) {
+      .mobile-menu-btn {
+        display: none !important;
+      }
+    }
   `]
 })
 export class CanvasComponent implements OnInit, OnDestroy {
