@@ -36,39 +36,120 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
            [class.active]="isMobilePanelOpen" 
            (click)="closeMobilePanel()"></div>
 
-      <!-- Toolbar -->
-      <div class="toolbar">
-        <!-- Row 1: Add, Export, Import, Delete, Grid -->
-        <div class="toolbar-row">
-          <button (click)="addNoteAtCenter()" class="toolbar-btn primary">+ Add</button>
-          <button (click)="exportNotes()" class="toolbar-btn" title="Export all notes as JSON">📤</button>
-          <button (click)="importNotes()" class="toolbar-btn" title="Import notes from JSON">📥</button>
-          <input 
-            #fileInput 
-            type="file" 
-            accept=".json" 
-            (change)="onFileSelected($event)" 
-            style="display: none">
-          <button (click)="deleteAllNotes()" class="toolbar-btn danger" title="Delete all notes">🗑️</button>
-          <button (click)="toggleGrid()" class="toolbar-btn">
-            {{ canvasState.settings.showGrid ? '✓' : '✗' }}
+      <!-- Import/Export Menu Button -->
+      <button class="menu-btn" (click)="toggleMenu()" title="Import/Export">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="10" cy="4" r="1.5" fill="currentColor"/>
+          <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+          <circle cx="10" cy="16" r="1.5" fill="currentColor"/>
+        </svg>
+      </button>
+
+      <!-- Import/Export Menu -->
+      <div class="import-export-menu" [class.active]="isMenuOpen">
+        <div class="menu-header">Data Management</div>
+        <button (click)="exportNotes(); toggleMenu()" class="menu-item">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 1v10m0 0L4 7m4 4l4-4M2 15h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Export Notes</span>
+        </button>
+        <button (click)="importNotes(); toggleMenu()" class="menu-item">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 11V1m0 10L4 7m4 4l4-4M2 15h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Import Notes</span>
+        </button>
+        <input 
+          #fileInput 
+          type="file" 
+          accept=".json" 
+          (change)="onFileSelected($event)" 
+          style="display: none">
+      </div>
+
+      <!-- Floating Add Button -->
+      <button (click)="addNoteAtCenter()" class="fab-add" title="Add Note">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+
+      <!-- Mobile Add Note Button -->
+      <button class="fab-add mobile-fab-add" (click)="addNoteAtCenter()" title="Add Note">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="16" fill="url(#purple-gradient)"/>
+          <path d="M16 10v12M10 16h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="purple-gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#8b5cf6"/>
+              <stop offset="1" stop-color="#7c3aed"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </button>
+
+      <!-- Coordinates Display -->
+      <div class="coords-indicator" *ngIf="mousePosition">
+        <span class="coord-label">Block</span>
+        <span class="coord-value">{{ mousePosition.gridX }}, {{ mousePosition.gridY }}</span>
+      </div>
+
+      <!-- Bottom Control Bar -->
+      <div class="bottom-bar">
+        <div class="bar-group">
+          <button (click)="zoomOut()" class="bar-btn" title="Zoom Out">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="4" y1="8" x2="12" y2="8"></line>
+            </svg>
+          </button>
+          <button (click)="resetView()" class="zoom-display" title="Reset View">{{ (canvasState.viewport.zoom * 100).toFixed(0) }}%</button>
+          <button (click)="zoomIn()" class="bar-btn" title="Zoom In">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="4" x2="8" y2="12"></line>
+              <line x1="4" y1="8" x2="12" y2="8"></line>
+            </svg>
           </button>
         </div>
         
-        <!-- Row 2: Font, Theme, Reset, Zoom controls -->
-        <div class="toolbar-row">
-          <button (click)="cycleFontMode()" class="toolbar-btn" title="Toggle Font">
-            {{ fontMode === 'comic' ? '🎨' : (fontMode === 'serif' ? '📖' : '🔤') }}
+        <div class="bar-group format-tools">
+          <button (click)="formatText('bold')" class="bar-btn" title="Bold"><strong>B</strong></button>
+          <button (click)="formatText('italic')" class="bar-btn" title="Italic"><em>I</em></button>
+          <button (click)="formatText('underline')" class="bar-btn" title="Underline"><u>U</u></button>
+          <select (change)="setFontSize($any($event.target).value)" class="size-select" title="Font Size">
+            <option value="14">14</option>
+            <option value="16">16</option>
+            <option value="18">18</option>
+            <option value="20">20</option>
+            <option value="24">24</option>
+          </select>
+          <button (click)="decreaseFontSize()" class="bar-btn" title="Decrease Font Size">A−</button>
+          <button (click)="increaseFontSize()" class="bar-btn" title="Increase Font Size">A+</button>
+        </div>
+
+        <div class="bar-group">
+          <button (click)="cycleFontMode()" class="bar-btn font-btn" title="Font">
+            {{ fontMode === 'comic' ? 'Comic' : (fontMode === 'serif' ? 'Serif' : 'Sans') }}
           </button>
-          <button (click)="cycleThemeMode()" class="toolbar-btn" title="Toggle Theme">
+          <button (click)="cycleThemeMode()" class="bar-btn" title="Theme">
             {{ themeMode === 'dark' ? '🌙' : (themeMode === 'oled' ? '⚫' : '☀️') }}
           </button>
-          <button (click)="resetView()" class="toolbar-btn" title="Center and reset canvas position">🎯</button>
-          <button (click)="zoomOut()" class="toolbar-btn" title="Zoom Out (Ctrl + -)">−</button>
-          <button (click)="resetZoom()" class="toolbar-btn" title="Reset Zoom (Ctrl + 0)">
-            {{ (canvasState.viewport.zoom * 100).toFixed(0) }}%
+          <button (click)="toggleGrid()" class="bar-btn" title="Grid">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="2" width="5" height="5" rx="1"></rect>
+              <rect x="9" y="2" width="5" height="5" rx="1"></rect>
+              <rect x="2" y="9" width="5" height="5" rx="1"></rect>
+              <rect x="9" y="9" width="5" height="5" rx="1"></rect>
+            </svg>
           </button>
-          <button (click)="zoomIn()" class="toolbar-btn" title="Zoom In (Ctrl + +)">+</button>
+          <button (dblclick)="deleteAllNotes()" (click)="handleDeleteSingleClick()" class="bar-btn danger" [class.show-tooltip]="showDeleteTooltip" title="Delete All">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 4h10M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M6 7v4M10 7v4"></path>
+              <path d="M4 4h8l-1 9H5L4 4z"></path>
+            </svg>
+            <span class="delete-tooltip" *ngIf="showDeleteTooltip">Double-click to delete all</span>
+          </button>
         </div>
       </div>
       
@@ -118,39 +199,6 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
             </app-note>
           </div>
         </div>
-      </div>
-
-      <!-- Mobile Formatting Toolbar (Bottom) -->
-      <div class="mobile-formatting-toolbar">
-        <button (mousedown)="$event.preventDefault()" (click)="formatText('bold')" class="format-btn" title="Bold">
-          <strong>B</strong>
-        </button>
-        <button (mousedown)="$event.preventDefault()" (click)="formatText('italic')" class="format-btn" title="Italic">
-          <em>I</em>
-        </button>
-        <button (mousedown)="$event.preventDefault()" (click)="formatText('underline')" class="format-btn" title="Underline">
-          <u>U</u>
-        </button>
-        <button (mousedown)="$event.preventDefault()" (click)="formatText('strikeThrough')" class="format-btn" title="Strikethrough">
-          <s>S</s>
-        </button>
-        <select (mousedown)="$event.stopPropagation()" (change)="setFontSize($event)" class="font-size-dropdown" title="Font Size">
-          <option value="">Size</option>
-          <option value="12">12px</option>
-          <option value="14">14px</option>
-          <option value="16">16px</option>
-          <option value="18">18px</option>
-          <option value="20">20px</option>
-          <option value="24">24px</option>
-          <option value="28">28px</option>
-          <option value="32">32px</option>
-        </select>
-        <button (mousedown)="$event.preventDefault()" (click)="increaseFontSize()" class="format-btn" title="Increase Font Size">
-          A+
-        </button>
-        <button (mousedown)="$event.preventDefault()" (click)="decreaseFontSize()" class="format-btn" title="Decrease Font Size">
-          A-
-        </button>
       </div>
     </div>
   `,
@@ -223,98 +271,277 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
       overflow: hidden;
     }
     
-    .toolbar {
+    /* Floating Action Button for Add Note */
+    .fab-add {
       position: fixed;
-      top: 16px;
-      left: calc(50% + 150px);
+      bottom: 24px;
+      right: 24px;
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+      border: none;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 1100;
+      color: white;
+      box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .fab-add:hover {
+      transform: scale(1.1) rotate(90deg);
+      box-shadow: 0 12px 48px rgba(139, 92, 246, 0.6);
+    }
+
+    .fab-add:active {
+      transform: scale(1.05) rotate(90deg);
+    }
+
+    /* Mobile Floating Action Button for Add Note */
+    .mobile-fab-add {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .fab-add:not(.mobile-fab-add) {
+        display: none !important;
+      }
+      .mobile-fab-add {
+        display: block !important;
+        position: fixed;
+        top: 80px;
+        right: 24px;
+        z-index: 1700;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+      }
+      .mobile-fab-add:active {
+        transform: scale(0.96);
+      }
+    }
+
+    /* Coordinates Indicator */
+    .coords-indicator {
+      position: fixed;
+      bottom: 24px;
+      right: 108px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(20px);
+      padding: 10px 16px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .coord-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .coord-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.95);
+      font-family: 'Courier New', monospace;
+    }
+
+    /* Bottom Control Bar */
+    .bottom-bar {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
-      background: rgba(255, 255, 255, 0.85);
+      background: rgba(0, 0, 0, 0.85);
       backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 8px 12px;
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 
-                  0 2px 8px rgba(0, 0, 0, 0.08),
-                  inset 0 1px 0 rgba(255, 255, 255, 0.8);
-      border: none;
+      padding: 12px 16px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .bar-group {
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-    
-    .zoom-controls {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 0 12px;
-      border-left: 1px solid rgba(0, 0, 0, 0.08);
-      border-right: 1px solid rgba(0, 0, 0, 0.08);
+      padding: 0 8px;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .toolbar-btn {
-      padding: 8px 16px;
+    .bar-group:last-child {
+      border-right: none;
+    }
+
+    .bar-btn {
+      width: 36px;
+      height: 36px;
+      padding: 0;
       border: none;
       border-radius: 10px;
-      background: rgba(255, 255, 255, 0.6);
+      background: transparent;
+      color: rgba(255, 255, 255, 0.8);
       cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-      color: #333;
-      position: relative;
-      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      font-size: 14px;
+      font-weight: 600;
     }
-    
-    .toolbar-btn::before {
+
+    .bar-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+    }
+
+    .bar-btn:active {
+      transform: scale(0.95);
+    }
+
+    .bar-btn.danger {
+      color: #ef4444;
+    }
+
+    .bar-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+    }
+
+    .bar-btn.font-btn {
+      font-size: 11px;
+      font-weight: 700;
+      width: auto;
+      min-width: 36px;
+      padding: 0 8px;
+    }
+
+    .delete-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.95);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      pointer-events: none;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+
+    .delete-tooltip::after {
       content: '';
       position: absolute;
-      top: 50%;
+      top: 100%;
       left: 50%;
-      width: 0;
-      height: 0;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.6);
-      transform: translate(-50%, -50%);
-      transition: width 0.6s, height 0.6s;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: rgba(0, 0, 0, 0.95);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    .zoom-display {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+
+    .zoom-display:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: scale(1.05);
+    }
+
+    .zoom-display:active {
+      transform: scale(0.98);
+    }
+
+    .size-select {
+      height: 36px;
+      min-width: 48px;
+      padding: 0 8px;
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .size-select:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+    }
+
+    .size-select option {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    /* Theme-specific dropdown styling */
+    body.dark-mode .size-select option {
+      background: #21262d;
+      color: #c9d1d9;
+    }
+
+    body.oled-mode .size-select option {
+      background: #0a0a0a;
+      color: #e6eef6;
+    }
+
+    /* Legacy toolbar styles - hide it */
+    .toolbar {
+      display: none;
     }
     
-    .toolbar-btn:hover::before {
-      width: 300px;
-      height: 300px;
+    .toolbar-row {
+      display: none;
     }
     
-    .toolbar-btn:hover {
-      background: rgba(255, 255, 255, 0.9);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-      transform: translateY(-1px);
+    .toolbar-btn {
+      display: none;
     }
 
-    .toolbar-btn:active {
-      transform: translateY(0) scale(0.98);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    }
-
-    .toolbar-btn.primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
-    }
-
-    .toolbar-btn.primary:hover {
-      box-shadow: 0 4px 16px rgba(102, 126, 234, 0.5);
-      transform: translateY(-2px);
-    }
-
-    .toolbar-btn.danger {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      color: white;
-      box-shadow: 0 2px 8px rgba(245, 87, 108, 0.4);
-    }
-
-    .toolbar-btn.danger:hover {
-      box-shadow: 0 4px 16px rgba(245, 87, 108, 0.5);
+    .font-size-dropdown {
+      display: none;
     }
 
     .toolbar-group {
@@ -460,9 +687,106 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
       box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.3), 0 4px 12px rgba(0,0,0,0.4) !important;
     }
 
-    /* Mobile Formatting Toolbar - Hidden by default */
-    .mobile-formatting-toolbar {
-      display: none;
+    /* Import/Export Menu Button */
+    .menu-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+      border: none;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 1800;
+      transition: all 0.15s ease;
+      color: white;
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    }
+
+    .menu-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(139, 92, 246, 0.5);
+    }
+
+    .menu-btn:active {
+      transform: scale(0.98);
+    }
+
+    /* Import/Export Menu Dropdown */
+    .import-export-menu {
+      position: fixed;
+      top: 76px;
+      right: 20px;
+      width: 240px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      z-index: 1800;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px) scale(0.96);
+      transition: all 0.2s ease;
+      overflow: hidden;
+    }
+
+    .import-export-menu.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    .menu-header {
+      padding: 16px 16px 12px;
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: var(--bg-hover);
+    }
+
+    .menu-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: left;
+    }
+
+    .menu-item:hover {
+      background: var(--bg-hover);
+    }
+
+    .menu-item:active {
+      background: var(--bg-hover);
+      transform: scale(0.98);
+    }
+
+    .menu-item svg {
+      flex-shrink: 0;
+      color: #6b7280;
+    }
+
+    .menu-item:hover svg {
+      color: #1f2937;
+    }
+
+    .menu-item span {
+      flex: 1;
     }
 
     /* Mobile Menu Button */
@@ -571,7 +895,11 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
 
       .toolbar-row:first-child {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .toolbar-row:nth-child(2) {
+        display: none; /* Hide rich text controls on mobile - they're in the bottom toolbar */
       }
 
       .toolbar-row:last-child {
@@ -619,53 +947,36 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
         display: none;
       }
 
-      /* Mobile Rich Text Toolbar at Bottom */
-      .mobile-formatting-toolbar {
-        display: flex;
+      .bottom-bar .bar-group:not(.format-tools) {
+        display: none !important;
+      }
+      .bottom-bar .bar-group.format-tools {
+        display: flex !important;
+      }
+
+      .fab-add:not(.mobile-fab-add) {
+        display: none !important;
+      }
+      .mobile-fab-add {
+        display: block !important;
         position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 1500;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        padding: 12px 16px;
-        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
-        border-top: 1px solid rgba(0, 0, 0, 0.1);
-        gap: 8px;
+        top: 80px;
+        right: 24px;
+        z-index: 1700;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        border: none;
+        display: flex;
         align-items: center;
-        justify-content: space-around;
-        flex-wrap: wrap;
+        justify-content: center;
+        transition: all 0.2s;
       }
-
-      .mobile-formatting-toolbar .format-btn {
-        min-width: 44px;
-        min-height: 44px;
-        padding: 8px 12px;
-        background: rgba(102, 126, 234, 0.1);
-        border: none;
-        border-radius: 12px;
-        font-size: 15px;
-        font-weight: 600;
-        color: #667eea;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-
-      .mobile-formatting-toolbar .format-btn:active {
-        background: rgba(102, 126, 234, 0.2);
-        transform: scale(0.95);
-      }
-
-      .mobile-formatting-toolbar .font-size-dropdown {
-        padding: 8px 12px;
-        min-height: 44px;
-        border-radius: 12px;
-        background: rgba(102, 126, 234, 0.1);
-        border: none;
-        color: #667eea;
-        font-size: 14px;
-        font-weight: 600;
+      .mobile-fab-add:active {
+        transform: scale(0.96);
       }
     }
 
@@ -728,6 +1039,9 @@ export class CanvasComponent implements OnInit, OnDestroy {
   private isClickFromCanvas = false;
   private potentialCanvasPan = false;
   isMobilePanelOpen = false;
+  isMenuOpen = false;
+  showDeleteTooltip = false;
+  private deleteTooltipTimeout: any = null;
 
   private updateCanvasPosition(): void {
     // No need for explicit update since we're using CSS variables
@@ -1227,6 +1541,10 @@ export class CanvasComponent implements OnInit, OnDestroy {
     console.log('Creating note at position:', position);
     this.notesService.createNote(position).then(note => {
       console.log('Note created successfully:', note);
+      // Focus the new note after a short delay to allow rendering
+      setTimeout(() => {
+        this.focusNote(note.id);
+      }, 100);
     }).catch(error => {
       console.error('Error creating note:', error);
     });
@@ -1668,6 +1986,22 @@ export class CanvasComponent implements OnInit, OnDestroy {
     });
   }
 
+  handleDeleteSingleClick(): void {
+    // Show tooltip on single click
+    this.showDeleteTooltip = true;
+    
+    // Clear any existing timeout
+    if (this.deleteTooltipTimeout) {
+      clearTimeout(this.deleteTooltipTimeout);
+    }
+    
+    // Auto-hide tooltip after 2 seconds
+    this.deleteTooltipTimeout = setTimeout(() => {
+      this.showDeleteTooltip = false;
+      this.deleteTooltipTimeout = null;
+    }, 2000);
+  }
+
   async deleteAllNotes(): Promise<void> {
     const ok = window.confirm('Delete ALL notes? This cannot be undone.');
     if (!ok) return;
@@ -1807,6 +2141,10 @@ export class CanvasComponent implements OnInit, OnDestroy {
   closeMobilePanel(): void {
     this.isMobilePanelOpen = false;
     console.log('Mobile panel closed');
+  }
+
+  toggleMenu(): void {
+    this.isMenuOpen = !this.isMenuOpen;
   }
 
   toggleAddButtons(): void {

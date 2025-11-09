@@ -42,6 +42,12 @@ body {
   background: #f0f2f5 !important;
 }
 
+/* Light mode dropdown options */
+.size-select option {
+  background: #ffffff !important;
+  color: #374151 !important;
+}
+
 .toolbar {
   background: rgba(242, 244, 247, 0.85) !important;
   backdrop-filter: blur(20px);
@@ -383,7 +389,8 @@ body.dark-mode .font-size-dropdown:focus {
   border-color: #1f6feb !important;
 }
 
-body.dark-mode .font-size-dropdown option {
+body.dark-mode .font-size-dropdown option,
+body.dark-mode .size-select option {
   background: #21262d !important;
   color: #c9d1d9 !important;
 }
@@ -565,7 +572,8 @@ body.oled-mode .font-size-dropdown:focus {
   border-color: #0b84ff !important;
 }
 
-body.oled-mode .font-size-dropdown option {
+body.oled-mode .font-size-dropdown option,
+body.oled-mode .size-select option {
   background: #0a0a0a !important;
   color: #e6eef6 !important;
 }

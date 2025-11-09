@@ -134,6 +134,11 @@ import { Note } from '../../models';
     .panel-header h2 {
       margin: 0;
       font-size: 18px;
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 700;
     }
 
     .beta-badge {
