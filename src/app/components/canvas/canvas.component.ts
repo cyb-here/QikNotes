@@ -170,10 +170,11 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
         </div>
       </div>
       
-      <!-- Canvas Wrapper -->
-      <div class="canvas-wrapper">
+  <!-- Canvas Wrapper -->
+  <div #canvasWrapper class="canvas-wrapper">
         <!-- Main Canvas Area -->
         <div 
+          #canvasArea
           class="canvas-area"
           [class.no-transition]="isNavigating"
           [style.--zoom-level]="canvasState.viewport.zoom"
@@ -185,8 +186,10 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
           (click)="onCanvasClick($event)">
           
           <!-- Centered Container -->
-          <div class="notes-container">
+            <div #notesContainer class="notes-container">
             <app-grid [settings]="canvasState.settings"></app-grid>
+            <!-- World boundary indicator (red border) -->
+            <div class="world-boundary" aria-hidden="true"></div>
             <!-- Single Add Button at Mouse Position -->
             <app-add-button
               *ngIf="showAddButtons && mousePosition && !isDraggingNote && !isPositionOccupied(mousePosition)"
@@ -721,6 +724,19 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
       transform: translate(-50%, -50%);
     }
 
+    /* Visible red border showing the world boundary */
+    .world-boundary {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      border: 4px solid rgba(255, 60, 60, 0.95);
+      pointer-events: none;
+  z-index: 500; /* above grid but below interactive notes */
+    }
+
     .canvas-container.dragging .canvas-area {
       cursor: grabbing;
       transition: none !important;
@@ -1073,6 +1089,10 @@ export class CanvasComponent implements OnInit, OnDestroy {
     settings: { showGrid: true, cellWidth: 200, cellHeight: 150 }
   };
 
+  // How many grid blocks in each direction from center. Increase to allow a much larger canvas.
+  // For example, canvasGridHalf = 100 gives 200x200 visible blocks.
+  private canvasGridHalf = 200;
+
   showAddButtons = true;
   mousePosition: GridPosition | null = null;
   isDraggingNote = false;
@@ -1140,9 +1160,54 @@ export class CanvasComponent implements OnInit, OnDestroy {
   }
   private deleteTooltipTimeout: any = null;
 
+  @ViewChild('canvasArea') canvasArea!: ElementRef<HTMLElement>;
+  @ViewChild('canvasWrapper') canvasWrapper!: ElementRef<HTMLElement>;
+  @ViewChild('notesContainer') notesContainer!: ElementRef<HTMLElement>;
+
   private updateCanvasPosition(): void {
-    // No need for explicit update since we're using CSS variables
-    // This method exists to maintain clean architecture
+    // No explicit DOM writes required; CSS variables are bound to canvasOffset.
+    // However clamp offsets to prevent panning out of bounds.
+    this.clampCanvasOffset();
+  }
+
+  /**
+   * Clamp canvasOffset.x/y so the user cannot pan outside the virtual world area.
+   * The world is considered canvasGridHalf blocks in each direction from the center.
+   */
+  private clampCanvasOffset(): void {
+    try {
+  // Use the visible wrapper size (viewport) for clamping, not the oversized canvas element
+    const wrapperEl = this.canvasWrapper?.nativeElement;
+    const rect = wrapperEl ? wrapperEl.getBoundingClientRect() : (this.canvasArea?.nativeElement?.getBoundingClientRect() || { width: window.innerWidth, height: window.innerHeight } as DOMRect);
+    const vw = rect.width || window.innerWidth;
+    const vh = rect.height || window.innerHeight;
+
+    // Measure the unscaled world size from the notes container
+      const cellW = this.canvasState.settings.cellWidth;
+      const cellH = this.canvasState.settings.cellHeight;
+    const notesEl = this.notesContainer?.nativeElement || this.canvasArea?.nativeElement?.querySelector('.notes-container') as HTMLElement | null;
+    const notesWidth = notesEl ? notesEl.offsetWidth : (this.canvasGridHalf * 2 * cellW);
+    const notesHeight = notesEl ? notesEl.offsetHeight : (this.canvasGridHalf * 2 * cellH);
+
+  const zoom = Math.max(0.01, this.canvasState.viewport.zoom);
+
+  // Visual half-width of world after zoom = (notesWidth * zoom) / 2
+  // Visual half-width of viewport = vw / 2
+  // Visual max offset = visualHalfWorld - visualHalfViewport
+  // But stored canvasOffset is pre-scale, and visual offset = canvasOffset * zoom
+  // So canvasOffset limit = visualMaxOffset / zoom = ((notesWidth*zoom - vw)/2) / zoom
+  const maxOffsetX = Math.max(0, ((notesWidth * zoom - vw) / 2) / zoom);
+  const maxOffsetY = Math.max(0, ((notesHeight * zoom - vh) / 2) / zoom);
+
+      // Clamp
+      if (this.canvasOffset.x > maxOffsetX) this.canvasOffset.x = maxOffsetX;
+      if (this.canvasOffset.x < -maxOffsetX) this.canvasOffset.x = -maxOffsetX;
+      if (this.canvasOffset.y > maxOffsetY) this.canvasOffset.y = maxOffsetY;
+      if (this.canvasOffset.y < -maxOffsetY) this.canvasOffset.y = -maxOffsetY;
+    } catch (e) {
+      // defensive - if anything goes wrong, don't crash the canvas
+      console.warn('clampCanvasOffset failed', e);
+    }
   }
 
   private fixInvalidNotePositions(): void {
@@ -1309,6 +1374,7 @@ export class CanvasComponent implements OnInit, OnDestroy {
 
       this.lastMouseX = event.clientX;
       this.lastMouseY = event.clientY;
+      this.clampCanvasOffset();
       return;
     }
 
@@ -1348,6 +1414,7 @@ export class CanvasComponent implements OnInit, OnDestroy {
       this.isTouchPinching = true;
       const touch1 = event.touches[0];
       const touch2 = event.touches[1];
+      this.clampCanvasOffset();
       this.lastTouchDistance = Math.hypot(
         touch2.clientX - touch1.clientX,
         touch2.clientY - touch1.clientY
@@ -1369,6 +1436,7 @@ export class CanvasComponent implements OnInit, OnDestroy {
 
       this.lastTouchX = touch.clientX;
       this.lastTouchY = touch.clientY;
+  this.clampCanvasOffset();
     } else if (event.touches.length === 2 && this.isTouchPinching) {
       // Pinch zoom
       event.preventDefault();
@@ -1411,8 +1479,8 @@ export class CanvasComponent implements OnInit, OnDestroy {
 
     // Convert to grid coordinates
     return {
-      gridX: Math.floor(x / this.canvasState.settings.cellWidth) - 25, // Center is at (0,0)
-      gridY: Math.floor(y / this.canvasState.settings.cellHeight) - 25
+      gridX: Math.floor(x / this.canvasState.settings.cellWidth) - this.canvasGridHalf, // Center is at (0,0)
+      gridY: Math.floor(y / this.canvasState.settings.cellHeight) - this.canvasGridHalf
     };
   }
 
@@ -1491,6 +1559,8 @@ export class CanvasComponent implements OnInit, OnDestroy {
     // Load canvas state
     this.canvasService.getState().subscribe(state => {
       this.canvasState = state;
+      // clamp offsets whenever zoom/state changes to keep view inside bounds
+      Promise.resolve().then(() => this.clampCanvasOffset());
     });
 
     // Prevent global pinch/ctrl-wheel zoom from affecting the entire app
@@ -1542,12 +1612,15 @@ export class CanvasComponent implements OnInit, OnDestroy {
       // Use an exponential mapping for smooth zooming (increased to 0.008 for faster zoom)
       const factor = Math.exp(-dy * 0.008);
       this.canvasService.zoomBy(factor).catch(err => console.error('Zoom failed', err));
+      // clamp after zoom settles (state subscription will also clamp)
+      Promise.resolve().then(() => this.clampCanvasOffset());
     } else {
       // Treat as pan (two-finger scroll). Invert deltas so the content moves
       // with the fingers. Scale by 1/zoom so panning feels consistent at different zooms.
       const scale = 1 / Math.max(0.1, this.canvasState.viewport.zoom);
       this.canvasOffset.x -= dx * scale;
       this.canvasOffset.y -= dy * scale;
+      this.clampCanvasOffset();
     }
   }
 
@@ -2639,6 +2712,9 @@ export class CanvasComponent implements OnInit, OnDestroy {
         x: -note.position.gridX * cellWidth,
         y: -note.position.gridY * cellHeight
       };
+
+      // Ensure the offset respects world bounds
+      this.clampCanvasOffset();
 
       console.log('🎯 NAVIGATING TO NOTE 🎯', {
         grid: note.position, 
