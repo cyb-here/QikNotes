@@ -126,6 +126,23 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
           </select>
           <button (click)="decreaseFontSize()" class="bar-btn" title="Decrease Font Size">A−</button>
           <button (click)="increaseFontSize()" class="bar-btn" title="Increase Font Size">A+</button>
+          <!-- Lists dropdown -->
+          <div class="list-dropdown" (click)="$event.stopPropagation()">
+            <button class="bar-btn" (click)="toggleListDropdown()" title="Lists" aria-label="Lists">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div class="list-menu" *ngIf="showListDropdown">
+              <button class="list-item" (click)="formatList('ul')">Bulleted list (disc)</button>
+              <button class="list-item" (click)="formatList('ul', 'circle')">Bulleted (circle)</button>
+              <button class="list-item" (click)="formatList('ul', 'square')">Bulleted (square)</button>
+              <hr />
+              <button class="list-item" (click)="formatList('ol')">Numbered list (decimal)</button>
+              <button class="list-item" (click)="formatList('ol', 'lower-alpha')">Numbered (a, b, c)</button>
+              <button class="list-item" (click)="formatList('ol', 'lower-roman')">Numbered (i, ii, iii)</button>
+            </div>
+          </div>
         </div>
 
         <div class="bar-group">
@@ -618,6 +635,43 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
     }
 
+    /* List dropdown styles */
+    .list-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .list-menu {
+      position: absolute;
+      bottom: 44px;
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 2000;
+      min-width: 180px;
+    }
+
+    .list-item {
+      padding: 8px 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      text-align: left;
+      cursor: pointer;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .list-item:hover {
+      background: var(--bg-hover);
+    }
+
     .toolbar-info {
       display: flex;
       align-items: center;
@@ -1047,6 +1101,43 @@ export class CanvasComponent implements OnInit, OnDestroy {
   isMobilePanelOpen = false;
   isMenuOpen = false;
   showDeleteTooltip = false;
+  // List dropdown state for toolbar
+  showListDropdown = false;
+
+  toggleListDropdown(): void {
+    this.showListDropdown = !this.showListDropdown;
+  }
+
+  formatList(type: 'ul' | 'ol', style?: string): void {
+    try {
+      if (type === 'ul') {
+        document.execCommand('insertUnorderedList');
+      } else {
+        document.execCommand('insertOrderedList');
+      }
+
+      // Attempt to find the nearest list element and apply style
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      let node: Node | null = sel.anchorNode;
+      while (node && node !== document.body) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as HTMLElement;
+          const tag = el.tagName.toUpperCase();
+          if (tag === 'UL' || tag === 'OL') {
+            if (style) {
+              (el as HTMLElement).style.listStyleType = style;
+            }
+            break;
+          }
+        }
+        node = node.parentNode;
+      }
+    } finally {
+      this.showListDropdown = false;
+      this.cdr.detectChanges();
+    }
+  }
   private deleteTooltipTimeout: any = null;
 
   private updateCanvasPosition(): void {

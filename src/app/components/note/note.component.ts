@@ -2,7 +2,6 @@ import { Component, Input, Output, EventEmitter, ElementRef, HostListener, ViewC
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Note, CanvasSettings, GridPosition } from '../../models';
-
 @Component({
   selector: 'app-note',
   standalone: true,
@@ -41,6 +40,8 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
           #contentEditable
           class="note-content"
           contenteditable="true"
+          (paste)="onPaste($event)"
+          (keydown)="onContentKeyDown($event)"
           (input)="onContentInput()"
           (blur)="onContentChange()"
           (focus)="onContentFocus()"
@@ -773,5 +774,298 @@ export class NoteComponent implements AfterViewInit {
   onNoteClick(event: MouseEvent): void {
     // Emit note clicked event for highlighting in the list
     this.noteClicked.emit();
+  }
+
+  onContentKeyDown(event: KeyboardEvent): void {
+    // Auto-convert typed markers to lists (e.g. "- ", "* ", "1. ")
+    if (event.key === ' ') {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        if (range.collapsed) {
+          // Find nearest block container (p, div, li, or the editable root)
+          let node: Node | null = range.startContainer;
+          while (node && node !== this.contentEditable.nativeElement && node.nodeType !== Node.ELEMENT_NODE) {
+            node = node.parentNode;
+          }
+          let block: HTMLElement | null = null;
+          if (node && node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as HTMLElement;
+            // Prefer a block-level container
+            if (['P','DIV','LI'].includes(el.tagName.toUpperCase())) block = el;
+            else block = this.contentEditable.nativeElement;
+          } else {
+            block = this.contentEditable?.nativeElement || null;
+          }
+
+          if (block) {
+            // Create a range from block start to caret to inspect typed characters
+            const startRange = document.createRange();
+            startRange.setStart(block, 0);
+            startRange.setEnd(range.startContainer, range.startOffset);
+            const typed = (startRange.toString() || '').replace(/^\s+/, '');
+
+            // Match -, * or numbered marker like 1.
+            const bulletMatch = typed.match(/^([-*])\s?$/);
+            const numberedMatch = typed.match(/^(\d+)\.\s?$/);
+
+            if (bulletMatch || numberedMatch) {
+              // Prevent inserting a space
+              event.preventDefault();
+
+              // Remove the marker text we just typed
+              startRange.deleteContents();
+
+              // Create list and li elements
+              const list = document.createElement(bulletMatch ? 'ul' : 'ol');
+              if (numberedMatch) {
+                // If user typed a specific number, set start accordingly
+                const startNum = parseInt(numberedMatch[1], 10);
+                if (!isNaN(startNum) && startNum > 1) {
+                  (list as HTMLOListElement).start = startNum;
+                }
+              }
+              const li = document.createElement('li');
+
+              // Move remaining contents of the original block into the li
+              while (block.firstChild) {
+                li.appendChild(block.firstChild);
+              }
+
+              list.appendChild(li);
+
+              // Replace the original block with the new list
+              if (block.parentNode) {
+                block.parentNode.replaceChild(list, block);
+              } else {
+                // fallback: append to editable
+                this.contentEditable.nativeElement.appendChild(list);
+              }
+
+              // Place caret at start of the li
+              const newRange = document.createRange();
+              newRange.setStart(li, 0);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+
+              // Trigger update
+              this.onContentInput();
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // Handle Backspace/Delete at start of list items to remove list formatting
+    if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+
+    // Only handle collapsed caret (no selection)
+    if (!range.collapsed) return;
+
+    let anchor: Node | null = sel.anchorNode;
+    if (!anchor) return;
+
+    // Walk up to find nearest LI element
+    let li: HTMLElement | null = null;
+    let node: Node | null = anchor;
+    while (node && node !== this.contentEditable.nativeElement && node !== document.body) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        if (el.tagName.toUpperCase() === 'LI') {
+          li = el;
+          break;
+        }
+      }
+      node = node.parentNode;
+    }
+
+    if (!li) return; // not inside a list item
+
+    // Determine if caret is at start of the li (or li is empty)
+    const isEmpty = (li.textContent || '').trim().length === 0;
+
+    // If anchor is a text node, check offset
+    let atStart = false;
+    if (anchor.nodeType === Node.TEXT_NODE) {
+      atStart = range.startOffset === 0;
+    } else if (anchor === li) {
+      // If anchor is the li itself and there's no previous content
+      atStart = true;
+    } else {
+      // If the caret is before the first child of li
+      atStart = (li.childNodes.length > 0 && li.childNodes[0] === anchor && range.startOffset === 0) || isEmpty;
+    }
+
+    if (!atStart && event.key === 'Backspace') return; // let default behavior handle other cases
+
+    // Prevent default removal and convert list item to paragraph
+    event.preventDefault();
+
+    const p = document.createElement('p');
+    // Move contents of li into p
+    while (li.firstChild) {
+      p.appendChild(li.firstChild);
+    }
+
+    const list = li.parentElement as HTMLElement | null;
+    if (list) {
+      // Replace li with p
+      list.replaceChild(p, li);
+
+      // If parent list has no more LI children, unwrap it
+      const remainingLI = list.querySelectorAll('li');
+      if (remainingLI.length === 0) {
+        // Move children of list (paragraphs) out if any
+        const parent = list.parentElement;
+        if (parent) {
+          // Insert p after the list
+          parent.insertBefore(p, list.nextSibling);
+          parent.removeChild(list);
+        }
+      }
+    } else {
+      // No parent list found; fallback to inserting p in place
+      li.parentNode?.replaceChild(p, li);
+    }
+
+    // Place caret at start of new paragraph
+    const newRange = document.createRange();
+    newRange.setStart(p, 0);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+
+    // Notify content changed and recalc size
+    this.onContentInput();
+  }
+
+  onPaste(event: ClipboardEvent): void {
+    // Handle paste as plain text but detect simple Markdown/Plain-list patterns and convert to HTML lists
+    event.preventDefault();
+
+    const clipboard = event.clipboardData || (window as any).clipboardData;
+    let text = '';
+    if (clipboard) {
+      text = clipboard.getData('text/plain') || '';
+    }
+
+    // Normalize NBSPs
+    text = text.replace(/\u00A0/g, ' ').replace(/&nbsp;/g, ' ');
+
+    // Quick heuristic: if any line looks like a list marker, parse as markdown-like lists
+    const lines = text.split(/\r?\n/);
+    const listLineRe = /^(\s*)([-*+]|\d+\.)\s+(.*)$/;
+    let containsList = false;
+    for (const l of lines) {
+      if (listLineRe.test(l)) { containsList = true; break; }
+    }
+
+    let sel = window.getSelection();
+    const el = this.contentEditable?.nativeElement;
+    if (!sel || sel.rangeCount === 0) {
+      if (!el) return;
+      if (!containsList) {
+        el.appendChild(document.createTextNode(text));
+        this.onContentInput();
+        return;
+      }
+      // create a collapsed range at the end of the note so we can insert lists there
+      const fallbackRange = document.createRange();
+      fallbackRange.selectNodeContents(el);
+      fallbackRange.collapse(false);
+      sel = window.getSelection();
+      if (!sel) return;
+      sel.removeAllRanges();
+      sel.addRange(fallbackRange);
+    }
+
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+
+    if (!containsList) {
+      const textNode = document.createTextNode(text);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      this.onContentInput();
+      return;
+    }
+
+    // Parse markdown-like lists into nested <ul>/<ol>
+    const frag = document.createDocumentFragment();
+    const stack: { listEl: HTMLElement; indent: number; type: 'ul'|'ol' }[] = [];
+
+    function closeToIndent(targetIndent: number) {
+      while (stack.length && stack[stack.length - 1].indent >= targetIndent) {
+        stack.pop();
+      }
+    }
+
+    for (const rawLine of lines) {
+      const m = rawLine.match(listLineRe);
+      if (!m) {
+        // Non-list line: close all open lists
+        closeToIndent(-1);
+        const p = document.createElement('p');
+        p.appendChild(document.createTextNode(rawLine));
+        frag.appendChild(p);
+        continue;
+      }
+
+      const indent = Math.floor(m[1].replace(/\t/g, '    ').length / 2);
+      const marker = m[2];
+      const content = m[3];
+      const type: 'ul' | 'ol' = /\d+\./.test(marker) ? 'ol' : 'ul';
+
+      // Find appropriate parent list for this indent
+      if (!stack.length || indent > stack[stack.length - 1].indent) {
+        // create new nested list
+        const newList = document.createElement(type);
+        if (stack.length) {
+          // append to last li
+          const parentLi = stack[stack.length - 1].listEl.lastElementChild as HTMLElement | null;
+          if (parentLi) parentLi.appendChild(newList);
+          else frag.appendChild(newList);
+        } else {
+          frag.appendChild(newList);
+        }
+        stack.push({ listEl: newList, indent, type });
+      } else {
+        // same or shallower indent
+        closeToIndent(indent - 1);
+        if (!stack.length || stack[stack.length - 1].indent < indent) {
+          const newList = document.createElement(type);
+          frag.appendChild(newList);
+          stack.push({ listEl: newList, indent, type });
+        }
+      }
+
+      // append li to current list
+      const current = stack[stack.length - 1];
+      const li = document.createElement('li');
+      li.appendChild(document.createTextNode(content));
+      current.listEl.appendChild(li);
+    }
+
+    // insert fragment at range
+    range.insertNode(frag);
+    // move caret to end of inserted content
+    sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      const endRange = document.createRange();
+      endRange.selectNodeContents(this.contentEditable.nativeElement);
+      endRange.collapse(false);
+      sel.addRange(endRange);
+    }
+    this.onContentInput();
   }
 }
