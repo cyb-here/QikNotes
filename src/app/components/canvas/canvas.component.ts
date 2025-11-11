@@ -177,6 +177,7 @@ import { NotesPanelComponent } from '../notes-panel/notes-panel.component';
           #canvasArea
           class="canvas-area"
           [class.no-transition]="isNavigating"
+          
           [style.--zoom-level]="canvasState.viewport.zoom"
           [style.--offset-x.px]="canvasOffset.x"
           [style.--offset-y.px]="canvasOffset.y"
@@ -1498,14 +1499,28 @@ export class CanvasComponent implements OnInit, OnDestroy {
   }
 
   calculateGridPosition(clientX: number, clientY: number, rect: DOMRect): GridPosition {
-    // Calculate position relative to the canvas center (5000, 5000)
-    const x = (clientX - rect.left - this.canvasOffset.x) / this.canvasState.viewport.zoom;
-    const y = (clientY - rect.top - this.canvasOffset.y) / this.canvasState.viewport.zoom;
+    // Prefer using the notes container bounding rect (it's centered and contains the world boundary).
+    // This makes the conversion match how notes are positioned inside the container.
+    const notesEl = this.notesContainer?.nativeElement as HTMLElement | null;
+    const notesRect = notesEl ? notesEl.getBoundingClientRect() : null;
 
-    // Convert to grid coordinates
+    // Determine the visual center to use for mapping. Prefer notes container center, fall back to canvas rect center.
+    const centerX = notesRect ? (notesRect.left + notesRect.width / 2) : (rect.left + rect.width / 2);
+    const centerY = notesRect ? (notesRect.top + notesRect.height / 2) : (rect.top + rect.height / 2);
+
+    // Visual position relative to center. Note: canvasOffset is already applied as a CSS transform on the canvas area,
+    // and the notes rect returned by getBoundingClientRect accounts for that transform, so we don't subtract canvasOffset here.
+    const visualX = clientX - centerX;
+    const visualY = clientY - centerY;
+
+    // Convert visual (screen) coordinates back to world (pre-scale) coordinates by dividing by zoom.
+    const worldX = visualX / Math.max(0.0001, this.canvasState.viewport.zoom);
+    const worldY = visualY / Math.max(0.0001, this.canvasState.viewport.zoom);
+
+    // Convert to grid coordinates (grid is centered at 0,0 so no extra offset needed)
     return {
-      gridX: Math.floor(x / this.canvasState.settings.cellWidth) - this.canvasGridHalf, // Center is at (0,0)
-      gridY: Math.floor(y / this.canvasState.settings.cellHeight) - this.canvasGridHalf
+      gridX: Math.floor(worldX / this.canvasState.settings.cellWidth),
+      gridY: Math.floor(worldY / this.canvasState.settings.cellHeight)
     };
   }
 
