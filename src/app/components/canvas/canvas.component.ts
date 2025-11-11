@@ -1175,38 +1175,63 @@ export class CanvasComponent implements OnInit, OnDestroy {
    * The world is considered canvasGridHalf blocks in each direction from the center.
    */
   private clampCanvasOffset(): void {
-    try {
-  // Use the visible wrapper size (viewport) for clamping, not the oversized canvas element
+    // Declare these outside the try so the finally block can access them
     const wrapperEl = this.canvasWrapper?.nativeElement;
-    const rect = wrapperEl ? wrapperEl.getBoundingClientRect() : (this.canvasArea?.nativeElement?.getBoundingClientRect() || { width: window.innerWidth, height: window.innerHeight } as DOMRect);
-    const vw = rect.width || window.innerWidth;
-    const vh = rect.height || window.innerHeight;
+    let areaEl: HTMLElement | null = this.canvasArea?.nativeElement || null;
+    let prevTransition: string | null = null;
 
-    // Measure the unscaled world size from the notes container
+    try {
+      // Temporarily disable CSS transitions on the canvas area so clamping snaps without animation
+      if (areaEl) {
+        prevTransition = areaEl.style.transition || null;
+        areaEl.style.transition = 'none';
+      }
+
+      // Use the visible wrapper size (viewport) for clamping, not the oversized canvas element
+      const rect = wrapperEl ? wrapperEl.getBoundingClientRect() : (this.canvasArea?.nativeElement?.getBoundingClientRect() || { width: window.innerWidth, height: window.innerHeight } as DOMRect);
+      const vw = rect.width || window.innerWidth;
+      const vh = rect.height || window.innerHeight;
+
+      // Measure the unscaled world size from the notes container using bounding rect (more accurate than offsetWidth when transforms/styles apply)
       const cellW = this.canvasState.settings.cellWidth;
       const cellH = this.canvasState.settings.cellHeight;
-    const notesEl = this.notesContainer?.nativeElement || this.canvasArea?.nativeElement?.querySelector('.notes-container') as HTMLElement | null;
-    const notesWidth = notesEl ? notesEl.offsetWidth : (this.canvasGridHalf * 2 * cellW);
-    const notesHeight = notesEl ? notesEl.offsetHeight : (this.canvasGridHalf * 2 * cellH);
+      const notesEl = this.notesContainer?.nativeElement || this.canvasArea?.nativeElement?.querySelector('.notes-container') as HTMLElement | null;
+      const notesRect = notesEl ? notesEl.getBoundingClientRect() : null;
+      const notesWidth = notesRect ? notesRect.width : (this.canvasGridHalf * 2 * cellW);
+      const notesHeight = notesRect ? notesRect.height : (this.canvasGridHalf * 2 * cellH);
 
-  const zoom = Math.max(0.01, this.canvasState.viewport.zoom);
+      const zoom = Math.max(0.01, this.canvasState.viewport.zoom);
 
-  // Visual half-width of world after zoom = (notesWidth * zoom) / 2
-  // Visual half-width of viewport = vw / 2
-  // Visual max offset = visualHalfWorld - visualHalfViewport
-  // But stored canvasOffset is pre-scale, and visual offset = canvasOffset * zoom
-  // So canvasOffset limit = visualMaxOffset / zoom = ((notesWidth*zoom - vw)/2) / zoom
-  const maxOffsetX = Math.max(0, ((notesWidth * zoom - vw) / 2) / zoom);
-  const maxOffsetY = Math.max(0, ((notesHeight * zoom - vh) / 2) / zoom);
+      // Compute maximum allowed pre-scale offsets so the visual world cannot move past the viewport edges.
+      // visualWorld = notesSize * zoom
+      // visualMaxOffset = (visualWorld - viewportSize) / 2
+      // pre-scale maxOffset = visualMaxOffset / zoom
+      const maxOffsetX = Math.max(0, ((notesWidth * zoom - vw) / 2) / zoom);
+      const maxOffsetY = Math.max(0, ((notesHeight * zoom - vh) / 2) / zoom);
 
-      // Clamp
-      if (this.canvasOffset.x > maxOffsetX) this.canvasOffset.x = maxOffsetX;
-      if (this.canvasOffset.x < -maxOffsetX) this.canvasOffset.x = -maxOffsetX;
-      if (this.canvasOffset.y > maxOffsetY) this.canvasOffset.y = maxOffsetY;
-      if (this.canvasOffset.y < -maxOffsetY) this.canvasOffset.y = -maxOffsetY;
+      // If the world is smaller than the viewport, keep it centered (zero offset)
+      const clampedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, this.canvasOffset.x));
+      const clampedY = Math.max(-maxOffsetY, Math.min(maxOffsetY, this.canvasOffset.y));
+
+      // If values changed, apply them immediately with transitions disabled and force a reflow
+      if (clampedX !== this.canvasOffset.x || clampedY !== this.canvasOffset.y) {
+        this.canvasOffset.x = clampedX;
+        this.canvasOffset.y = clampedY;
+        // Make sure Angular applies the new CSS vars immediately
+        try { this.cdr.detectChanges(); } catch {}
+        // Force a reflow so the browser uses the snapped values instantly
+        try { void (this.canvasArea?.nativeElement?.getBoundingClientRect()); } catch {}
+      }
     } catch (e) {
       // defensive - if anything goes wrong, don't crash the canvas
       console.warn('clampCanvasOffset failed', e);
+    } finally {
+      // restore transition after clamp operation on next frame
+      if (areaEl) {
+        setTimeout(() => {
+          try { areaEl!.style.transition = prevTransition || ''; } catch { /* ignore */ }
+        }, 0);
+      }
     }
   }
 
