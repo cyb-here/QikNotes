@@ -1736,10 +1736,18 @@ export class CanvasComponent implements OnInit, OnDestroy {
   }
 
   isPositionOccupied(position: GridPosition): boolean {
-    return this.notes.some(note => 
-      note.position.gridX === position.gridX && 
-      note.position.gridY === position.gridY
-    );
+    // Consider note size: a note may span multiple grid cells. Treat any cell covered by a note as occupied.
+    return this.notes.some(note => {
+      const noteLeft = note.position.gridX;
+      const noteTop = note.position.gridY;
+      const noteWidth = (note.size && isFinite(note.size.width) && note.size.width > 0) ? note.size.width : 1;
+      const noteHeight = (note.size && isFinite(note.size.height) && note.size.height > 0) ? note.size.height : 1;
+      const noteRight = noteLeft + noteWidth - 1;
+      const noteBottom = noteTop + noteHeight - 1;
+
+      return position.gridX >= noteLeft && position.gridX <= noteRight &&
+             position.gridY >= noteTop && position.gridY <= noteBottom;
+    });
   }
 
   addNoteAtCenter(): void {

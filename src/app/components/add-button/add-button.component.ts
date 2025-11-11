@@ -37,29 +37,29 @@ import { GridPosition } from '../../models';
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      background: #4285f4;
-      color: white;
+      background: rgba(255,255,255,0.95); /* subtle near-white */
+      color: rgba(0,0,0,0.75); /* muted icon color */
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 20px;
       font-weight: bold;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      border: 2px solid white;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      box-shadow: 0 2px 6px rgba(16,24,40,0.06);
+      border: 1px solid rgba(16,24,40,0.06);
       transform-origin: center;
       will-change: transform;
     }
 
     .add-button-icon:hover {
-      background: #3367d6;
-      transform: scale(1.1);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      background: rgba(250,250,250,0.98);
+      transform: scale(1.04);
+      box-shadow: 0 6px 14px rgba(16,24,40,0.08);
     }
 
     .add-button:active .add-button-icon {
-      transform: scale(0.9);
-      background: #2850a7;
+      transform: scale(0.98);
+      background: rgba(245,245,245,0.98);
     }
   `]
 })
