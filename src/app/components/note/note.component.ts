@@ -228,6 +228,26 @@ import { Note, CanvasSettings, GridPosition } from '../../models';
       word-wrap: break-word;
     }
 
+    /* Reset default margins/padding inside contenteditable to avoid unexpected height growth
+       when users paste or type rich text (paragraphs, lists, headings). */
+    .note-content p,
+    .note-content ul,
+    .note-content ol,
+    .note-content h1,
+    .note-content h2,
+    .note-content h3,
+    .note-content h4,
+    .note-content h5,
+    .note-content h6 {
+      margin: 0;
+      padding: 0;
+    }
+
+    .note-content li {
+      margin: 0;
+      padding-left: 18px; /* keep reasonable indent but avoid extra vertical spacing */
+    }
+
     .note-content[data-placeholder]:empty:before {
       content: attr(data-placeholder);
       color: #9ca3af;
@@ -675,13 +695,13 @@ export class NoteComponent implements AfterViewInit {
     // Restore original height
     contentDiv.style.height = currentHeight;
     
-    const requiredHeight = (naturalHeight + 50) / this.settings.cellHeight;
-    const newHeight = Math.max(minHeight, Math.ceil(requiredHeight * 2) / 2); // Round to 0.5 units
+    const requiredHeight = (naturalHeight + 32) / this.settings.cellHeight; // use tighter padding
+    const newHeight = Math.max(minHeight, Math.ceil(requiredHeight)); // Round to whole grid units to avoid jitter
     
-    // Calculate width by checking content width
+      // Calculate width by checking content width (disabled auto-width to avoid unexpected horizontal growth)
     const textContent = contentDiv.textContent || '';
     
-    // If content is empty or only whitespace, set to minimum width
+    // If content is empty or only whitespace, set to minimum width/height
     if (!textContent.trim()) {
       const minimalSize = { width: minWidth, height: Math.max(minHeight, newHeight) };
       if (minimalSize.width !== this.note.size.width || minimalSize.height !== this.note.size.height) {
@@ -708,10 +728,13 @@ export class NoteComponent implements AfterViewInit {
       
       // Add padding for borders and padding (30px)
       const requiredWidth = (maxLineWidth + 30) / this.settings.cellWidth;
-      const newWidth = Math.max(minWidth, Math.ceil(requiredWidth * 2) / 2); // Round to 0.5 units
-      
+      // We avoid auto-adjusting width because rich-text can introduce transient inline/block elements
+      // that make width measurement unreliable and cause unwanted horizontal expansion. Only
+      // auto-adjust height for now.
+      const newWidth = this.note.size.width;
+
       // Log size calculations for debugging
-      console.log('Size calculation:', {
+      console.log('Size calculation (height-only):', {
         textLength: textContent.length,
         lines: lines.length,
         maxLineWidth,
@@ -721,11 +744,15 @@ export class NoteComponent implements AfterViewInit {
         currentWidth: this.note.size.width,
         currentHeight: this.note.size.height
       });
-      
-      // Always emit size change to ensure proper shrinking
-      if (newWidth !== this.note.size.width || newHeight !== this.note.size.height) {
-        console.log('Emitting size change:', { width: newWidth, height: newHeight });
+
+      const heightDiff = newHeight - this.note.size.height;
+      const shouldUpdateHeight = Math.abs(heightDiff) >= 1; // only change when at least 1 grid unit difference
+
+      if (shouldUpdateHeight) {
+        console.log('Emitting size change (height only):', { width: newWidth, height: newHeight });
         this.sizeChanged.emit({ width: newWidth, height: newHeight });
+      } else {
+        console.debug('Ignored minor height change', { height: newHeight, current: this.note.size });
       }
     }
   }

@@ -17,7 +17,7 @@ import { Note } from '../../models';
         <div class="search-box">
           <input 
             type="text" 
-            placeholder="Search notes..." 
+            placeholder="Serch Not Working Do not use ..." 
             [(ngModel)]="searchText"
             (input)="filterNotes()">
         </div>
